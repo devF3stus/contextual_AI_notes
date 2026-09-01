@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000; //sets the port for the server to listen 
 
 app.get("/api/notes", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM notes ORDER BY id ASC");
+    const result = await pool.query("SELECT * FROM public.notes ORDER BY id ASC");
 
     res.json(result.rows);
   } catch (error) {
@@ -26,7 +26,7 @@ app.post("/api/notes", async (req, res) => {
     const { content } = req.body;
 
     const result = await pool.query(
-      "INSERT INTO notes (content) VALUES ($1) RETURNING *",
+      "INSERT INTO public.notes (content) VALUES ($1) RETURNING *",
       [content]
     );
 
