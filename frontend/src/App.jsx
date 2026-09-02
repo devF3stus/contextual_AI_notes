@@ -51,9 +51,9 @@ function App() {
 
       <h2>Your Notes</h2>
 
-      {notes.map((currentNote, index) => (
-        <div key={index}>
-          <p>{currentNote}</p>
+      {notes.map((currentNote) => (
+        <div key={currentNote.id}>
+          <p>{currentNote.content}</p>
         </div>
       ))}
     </div>
