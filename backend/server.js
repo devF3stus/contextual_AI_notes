@@ -36,6 +36,38 @@ app.post("/api/notes", async (req, res) => {
     res.status(500).json({ error: "Failed to create note" });
   }
 });
+
+app.put("/api/notes/:id", async (req, res) => {
+  try {
+    const { content } = req.body;
+    const id = req.params.id;
+
+    const result = await pool.query(
+      "UPDATE public.notes SET content = $1 WHERE id = $2 RETURNING *",
+      [content, id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating note:", error);
+    res.status(500).json({ error: "Failed to update note" });
+  }
+});
+app.delete("/api/notes/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const result = await pool.query(
+      "DELETE FROM public.notes WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error deleting note:", error);
+    res.status(500).json({ error: "Failed to delete note" });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
