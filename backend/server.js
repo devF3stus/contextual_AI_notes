@@ -28,7 +28,6 @@ app.get("/api/partitions", async (req, res) => {
 
 app.post("/api/partitions", async (req, res) => {
   try {
-    console.log("POST /api/partitions body:", req.body);
     const { name } = req.body;
     if (!name || name.trim() === "") {
       return res.status(400).json({ error: "Partition name is required" });
@@ -39,7 +38,6 @@ app.post("/api/partitions", async (req, res) => {
     );
     const partition = result.rows[0];
     partition.note_count = 0;
-    console.log("POST /api/partitions success:", partition);
     res.json(partition);
   } catch (error) {
     console.error("Error creating partition:", error);
@@ -111,12 +109,12 @@ app.get("/api/notes", async (req, res) => {
 
 app.post("/api/notes", async (req, res) => {
   try {
-    const { content, partition_id } = req.body;
+    const { title, content, partition_id } = req.body;
     const result = await pool.query(
-      `INSERT INTO public.notes (content, partition_id)
-       VALUES ($1, $2)
-       RETURNING *, (SELECT name FROM public.partitions WHERE id = $2) AS partition_name`,
-      [content, partition_id || null]
+      `INSERT INTO public.notes (title, content, partition_id)
+       VALUES ($1, $2, $3)
+       RETURNING *, (SELECT name FROM public.partitions WHERE id = $3) AS partition_name`,
+      [title || null, content, partition_id || null]
     );
     res.json(result.rows[0]);
   } catch (error) {
@@ -127,26 +125,26 @@ app.post("/api/notes", async (req, res) => {
 
 app.put("/api/notes/:id", async (req, res) => {
   try {
-    const { content, partition_id } = req.body;
+    const { title, content, partition_id } = req.body;
     const id = req.params.id;
 
     if (partition_id !== undefined) {
       const result = await pool.query(
         `UPDATE public.notes
-         SET content = $1, partition_id = $2
-         WHERE id = $3
-         RETURNING *, (SELECT name FROM public.partitions WHERE id = $2) AS partition_name`,
-        [content, partition_id, id]
+         SET title = $1, content = $2, partition_id = $3
+         WHERE id = $4
+         RETURNING *, (SELECT name FROM public.partitions WHERE id = $3) AS partition_name`,
+        [title !== undefined ? title : null, content, partition_id, id]
       );
       return res.json(result.rows[0]);
     }
 
     const result = await pool.query(
       `UPDATE public.notes
-       SET content = $1
-       WHERE id = $2
+       SET title = $1, content = $2
+       WHERE id = $3
        RETURNING *, (SELECT name FROM public.partitions WHERE id = partition_id) AS partition_name`,
-      [content, id]
+      [title !== undefined ? title : null, content, id]
     );
     res.json(result.rows[0]);
   } catch (error) {
