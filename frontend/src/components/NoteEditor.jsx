@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 
 export default function NoteEditor({ note, onSave, onClose }) {
+  const [title, setTitle] = useState(note ? note.title || "" : "");
   const [content, setContent] = useState(note ? note.content : "");
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef(null);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
+    if (textareaRef.current) textareaRef.current.focus();
   }, []);
 
   useEffect(() => {
@@ -20,10 +19,11 @@ export default function NoteEditor({ note, onSave, onClose }) {
   }, [onClose]);
 
   async function handleSave() {
-    if (content.trim() === "" || saving) return;
+    if (content.trim() === "" && title.trim() === "") return;
+    if (saving) return;
     setSaving(true);
     try {
-      await onSave(note.id, content);
+      await onSave(title.trim() || null, content);
     } finally {
       setSaving(false);
     }
@@ -58,6 +58,13 @@ export default function NoteEditor({ note, onSave, onClose }) {
         </div>
 
         <div className="px-6 py-4">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title (optional)"
+            className="mb-3 w-full rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          />
           <textarea
             ref={textareaRef}
             value={content}
@@ -80,7 +87,7 @@ export default function NoteEditor({ note, onSave, onClose }) {
           </button>
           <button
             onClick={handleSave}
-            disabled={content.trim() === "" || saving}
+            disabled={(content.trim() === "" && title.trim() === "") || saving}
             className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}

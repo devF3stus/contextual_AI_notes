@@ -1,0 +1,129 @@
+import { useState, useEffect, useRef } from "react";
+
+export default function NoteWriter({
+  partitions,
+  initialPartitionId,
+  initialTitle,
+  initialContent,
+  onSave,
+  onClose,
+}) {
+  const [title, setTitle] = useState(initialTitle || "");
+  const [content, setContent] = useState(initialContent || "");
+  const [partitionId, setPartitionId] = useState(initialPartitionId || "");
+  const [saving, setSaving] = useState(false);
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (textareaRef.current) textareaRef.current.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
+  async function handleSave() {
+    if ((content.trim() === "" && title.trim() === "") || saving) return;
+    setSaving(true);
+    try {
+      await onSave(title.trim() || null, content, partitionId || null);
+    } catch (err) {
+      console.error("Failed to save note:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      handleSave();
+    }
+  }
+
+  const hasUnsavedChanges =
+    title !== (initialTitle || "") ||
+    content !== (initialContent || "") ||
+    partitionId !== (initialPartitionId || "");
+
+  return (
+    <div className="flex h-full flex-col bg-white">
+      {/* Top bar */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6">
+        <button
+          onClick={() => {
+            if (hasUnsavedChanges && !window.confirm("Discard unsaved changes?"))
+              return;
+            onClose();
+          }}
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-gray-400 sm:inline">
+            Ctrl+S to save
+          </span>
+          <button
+            onClick={handleSave}
+            disabled={(content.trim() === "" && title.trim() === "") || saving}
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Note"}
+          </button>
+        </div>
+      </div>
+
+      {/* Writing area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+          {/* Partition selector */}
+          <div className="mb-6">
+            <select
+              value={partitionId}
+              onChange={(e) => setPartitionId(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Uncategorized</option>
+              {partitions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Title */}
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title"
+            className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300 sm:text-3xl"
+          />
+
+          {/* Divider */}
+          <div className="mb-6 border-b border-gray-100"></div>
+
+          {/* Content */}
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Start writing..."
+            className="min-h-[50vh] w-full resize-none border-0 bg-transparent text-base leading-relaxed text-gray-800 outline-none placeholder:text-gray-300"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

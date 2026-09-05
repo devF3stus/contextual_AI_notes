@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "./components/Sidebar";
 import SearchBar from "./components/SearchBar";
 import NoteCard from "./components/NoteCard";
+import NoteWriter from "./components/NoteWriter";
 import NoteEditor from "./components/NoteEditor";
 import PartitionModal from "./components/PartitionModal";
 import Toast from "./components/Toast";
@@ -20,13 +21,11 @@ export default function App() {
   const [notes, setNotes] = useState([]);
   const [partitions, setPartitions] = useState([]);
   const [activePartition, setActivePartition] = useState(null);
-  const [noteInput, setNoteInput] = useState("");
-  const [selectedPartitionId, setSelectedPartitionId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingNote, setEditingNote] = useState(null);
+  const [writingNote, setWritingNote] = useState(null);
   const [partitionModal, setPartitionModal] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -92,35 +91,35 @@ export default function App() {
 
   // ─── Notes CRUD ─────────────────────────────────────────────
 
-  const handleAddNote = useCallback(async () => {
-    if (noteInput.trim() === "" || saving) return;
-    setSaving(true);
-    try {
-      const partitionId = selectedPartitionId || null;
-      const newNote = await createNote(noteInput, partitionId);
+  const handleCreateFromWriter = useCallback(
+    async (title, content, partitionId) => {
+      const newNote = await createNote(title, content, partitionId);
       setNotes((prev) => [newNote, ...prev]);
-      setNoteInput("");
+      setWritingNote(null);
       showToast("Note created successfully", "success");
       reloadPartitions();
-    } catch (err) {
-      console.error("Failed to create note:", err);
-      showToast("Failed to create note", "error");
-    } finally {
-      setSaving(false);
-    }
-  }, [noteInput, saving, selectedPartitionId]);
+    },
+    []
+  );
 
-  const handleUpdateNote = useCallback(async (id, content) => {
-    try {
-      const updatedNote = await updateNote(id, content);
+  const handleUpdateFromWriter = useCallback(
+    async (title, content, partitionId) => {
+      const id = writingNote.note.id;
+      const updatedNote = await updateNote(id, title, content, partitionId);
       setNotes((prev) => prev.map((n) => (n.id === id ? updatedNote : n)));
-      setEditingNote(null);
+      setWritingNote(null);
       showToast("Note updated", "success");
-    } catch (err) {
-      console.error("Failed to update note:", err);
-      showToast("Failed to update note", "error");
-    }
-  }, []);
+    },
+    [writingNote]
+  );
+
+  const handleUpdateFromEditor = useCallback(async (title, content) => {
+    const id = editingNote.id;
+    const updatedNote = await updateNote(id, title, content);
+    setNotes((prev) => prev.map((n) => (n.id === id ? updatedNote : n)));
+    setEditingNote(null);
+    showToast("Note updated", "success");
+  }, [editingNote]);
 
   const handleDeleteNote = useCallback(async (id) => {
     try {
@@ -200,6 +199,40 @@ export default function App() {
     ? activePartitionName
     : "Welcome back";
 
+  // ─── Writing mode (full screen) ────────────────────────────
+
+  if (writingNote) {
+    return (
+      <div className="flex h-screen bg-white">
+        <NoteWriter
+          partitions={partitions}
+          initialPartitionId={
+            writingNote.mode === "new"
+              ? writingNote.partitionId || ""
+              : writingNote.note.partition_id || ""
+          }
+          initialTitle={writingNote.mode === "edit" ? writingNote.note.title || "" : ""}
+          initialContent={writingNote.mode === "edit" ? writingNote.note.content : ""}
+          onSave={
+            writingNote.mode === "new"
+              ? handleCreateFromWriter
+              : handleUpdateFromWriter
+          }
+          onClose={() => setWritingNote(null)}
+        />
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ─── Dashboard ──────────────────────────────────────────────
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar
@@ -227,88 +260,49 @@ export default function App() {
               onClick={() => setMobileMenuOpen(true)}
               className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
             >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="text-lg font-bold text-gray-900">
-              Contextual AI Notes
-            </h1>
+            <h1 className="text-lg font-bold text-gray-900">Contextual AI Notes</h1>
           </div>
 
           {/* Page title */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              {pageTitle}
-            </h2>
-            {activePartitionName && !searchQuery && (
-              <p className="mt-1 text-gray-500">
-                {notes.length} {notes.length === 1 ? "note" : "notes"} in this
-                partition
-              </p>
-            )}
-            {!activePartitionName && !searchQuery && (
-              <p className="mt-1 text-gray-500">
-                Capture your thoughts and keep your ideas organized.
-              </p>
-            )}
+          <div className="mb-8 flex items-start justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+                {pageTitle}
+              </h2>
+              {activePartitionName && !searchQuery && (
+                <p className="mt-1 text-gray-500">
+                  {notes.length} {notes.length === 1 ? "note" : "notes"} in this partition
+                </p>
+              )}
+              {!activePartitionName && !searchQuery && (
+                <p className="mt-1 text-gray-500">
+                  Capture your thoughts and keep your ideas organized.
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() =>
+                setWritingNote({
+                  mode: "new",
+                  partitionId: activePartition && activePartition !== "all" ? activePartition : null,
+                })
+              }
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">New Note</span>
+            </button>
           </div>
 
           {/* Search */}
           <div className="mb-6">
             <SearchBar value={searchQuery} onChange={setSearchQuery} />
-          </div>
-
-          {/* Quick add */}
-          <div className="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <textarea
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="Quick note... (just start typing)"
-              className="w-full resize-none rounded-lg border-0 bg-transparent p-1 text-sm text-gray-900 outline-none placeholder:text-gray-400"
-              rows="2"
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                  handleAddNote();
-                }
-              }}
-            />
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <select
-                value={selectedPartitionId}
-                onChange={(e) => setSelectedPartitionId(e.target.value)}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="">Uncategorized</option>
-                {partitions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center gap-2">
-                <span className="hidden text-xs text-gray-400 sm:inline">
-                  Ctrl+Enter to save
-                </span>
-                <button
-                  onClick={handleAddNote}
-                  disabled={noteInput.trim() === "" || saving}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {saving ? "Saving..." : "Add Note"}
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Notes section header */}
@@ -336,18 +330,8 @@ export default function App() {
           {/* Error */}
           {error && !loading && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-              <svg
-                className="mx-auto mb-3 h-10 w-10 text-red-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
+              <svg className="mx-auto mb-3 h-10 w-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <p className="mb-3 text-sm font-medium text-red-800">{error}</p>
               <button
@@ -360,9 +344,7 @@ export default function App() {
                       : undefined;
                   fetchNotes(partitionId)
                     .then(setNotes)
-                    .catch(() =>
-                      setError("Unable to connect to the server.")
-                    )
+                    .catch(() => setError("Unable to connect to the server."))
                     .finally(() => setLoading(false));
                 }}
                 className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
@@ -379,9 +361,13 @@ export default function App() {
                 <NoteCard
                   key={note.id}
                   note={note}
-                  onEdit={setEditingNote}
+                  onEdit={(n) =>
+                    setWritingNote({ mode: "edit", note: n })
+                  }
                   onDelete={handleDeleteNote}
-                  onClick={() => setEditingNote(note)}
+                  onClick={() =>
+                    setWritingNote({ mode: "edit", note })
+                  }
                 />
               ))}
             </div>
@@ -390,23 +376,11 @@ export default function App() {
           {/* Empty: no notes at all */}
           {!loading && !error && notes.length === 0 && !searchQuery && (
             <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-              <svg
-                className="mx-auto mb-4 h-12 w-12 text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
+              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               <h3 className="mb-1 text-lg font-semibold text-gray-900">
-                {activePartitionName
-                  ? "This partition is empty"
-                  : "No notes yet"}
+                {activePartitionName ? "This partition is empty" : "No notes yet"}
               </h3>
               <p className="mb-6 text-sm text-gray-500">
                 {activePartitionName
@@ -414,21 +388,19 @@ export default function App() {
                   : "Capture your first thought and start building your personal knowledge space."}
               </p>
               <button
-                onClick={() => document.querySelector("textarea")?.focus()}
+                onClick={() =>
+                  setWritingNote({
+                    mode: "new",
+                    partitionId:
+                      activePartition && activePartition !== "all"
+                        ? activePartition
+                        : null,
+                  })
+                }
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 Create Your First Note
               </button>
@@ -436,40 +408,25 @@ export default function App() {
           )}
 
           {/* Empty: search no results */}
-          {!loading &&
-            !error &&
-            searchQuery &&
-            displayNotes.length === 0 && (
-              <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-                <svg
-                  className="mx-auto mb-4 h-12 w-12 text-gray-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                <h3 className="mb-1 text-lg font-semibold text-gray-900">
-                  No notes found
-                </h3>
-                <p className="text-sm text-gray-500">
-                  No notes found for &ldquo;{searchQuery}&rdquo;
-                </p>
-              </div>
-            )}
+          {!loading && !error && searchQuery && displayNotes.length === 0 && (
+            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
+              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <h3 className="mb-1 text-lg font-semibold text-gray-900">No notes found</h3>
+              <p className="text-sm text-gray-500">
+                No notes found for &ldquo;{searchQuery}&rdquo;
+              </p>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Edit modal */}
+      {/* Edit modal (kept for simple inline edits) */}
       {editingNote && (
         <NoteEditor
           note={editingNote}
-          onSave={handleUpdateNote}
+          onSave={handleUpdateFromEditor}
           onClose={() => setEditingNote(null)}
         />
       )}

@@ -10,18 +10,18 @@ export async function fetchNotes(partitionId) {
   return response.json();
 }
 
-export async function createNote(content, partitionId) {
+export async function createNote(title, content, partitionId) {
   const response = await fetch(`${API_BASE}/notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, partition_id: partitionId || null }),
+    body: JSON.stringify({ title: title || null, content, partition_id: partitionId || null }),
   });
   if (!response.ok) throw new Error("Failed to create note");
   return response.json();
 }
 
-export async function updateNote(id, content, partitionId) {
-  const body = { content };
+export async function updateNote(id, title, content, partitionId) {
+  const body = { title: title !== undefined ? title : null, content };
   if (partitionId !== undefined) body.partition_id = partitionId;
   const response = await fetch(`${API_BASE}/notes/${id}`, {
     method: "PUT",
@@ -54,12 +54,7 @@ export async function createPartition(name) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
-  console.log("createPartition response:", response.status, response.statusText);
-  if (!response.ok) {
-    const body = await response.text();
-    console.error("createPartition error body:", body);
-    throw new Error("Failed to create partition");
-  }
+  if (!response.ok) throw new Error("Failed to create partition");
   return response.json();
 }
 
