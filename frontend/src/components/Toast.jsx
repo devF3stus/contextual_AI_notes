@@ -11,7 +11,7 @@ export default function Toast({ message, type = "success", onClose }) {
 
   return (
     <div
-      className={`fixed top-5 right-5 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg ${bgColor} animate-slide-down`}
+      className={`fixed top-4 left-4 right-4 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg sm:left-auto sm:right-5 sm:top-5 sm:w-auto ${bgColor} animate-slide-down`}
     >
       <span className="text-base">{icon}</span>
       {message}

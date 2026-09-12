@@ -65,7 +65,7 @@ export default function NoteCard({ note, onEdit, onDelete, onClick }) {
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-600"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-200 hover:shadow-lg sm:p-5 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-600 animate-fade-in-up"
     >
       {note.title && (
         <h3 className="mb-2 text-base font-semibold text-gray-900 line-clamp-1 dark:text-white">
@@ -93,7 +93,7 @@ export default function NoteCard({ note, onEdit, onDelete, onClick }) {
         </div>
 
         <div
-          className="flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+          className="flex gap-1.5 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           <button

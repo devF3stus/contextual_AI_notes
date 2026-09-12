@@ -24,7 +24,7 @@ export default function Sidebar({
 
       <aside
         className={`fixed top-0 left-0 z-50 h-full w-64 border-r border-gray-200 bg-white transition-transform duration-200 ease-in-out dark:border-gray-700 dark:bg-gray-900 lg:static lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0 animate-slide-in-left" : "-translate-x-full"
         }`}
       >
         <div className="flex h-full flex-col">
@@ -112,13 +112,13 @@ export default function Sidebar({
                     <span className="text-xs text-gray-400 dark:text-gray-500">{partition.note_count}</span>
                   </button>
 
-                  <div className="hidden pr-2 group-hover:flex">
+                  <div className="flex pr-2 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onRenamePartition(partition);
                       }}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                       title="Rename"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,7 +130,7 @@ export default function Sidebar({
                         e.stopPropagation();
                         onDeletePartition(partition);
                       }}
-                      className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                      className="rounded p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                       title="Delete"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -464,8 +464,8 @@ export default function App() {
 
           {/* Empty: no notes at all */}
           {!loading && !error && notes.length === 0 && !searchQuery && (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
-              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="animate-fade-in-up rounded-xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
+              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300 animate-bounce-subtle dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
@@ -498,7 +498,7 @@ export default function App() {
 
           {/* Empty: search no results */}
           {!loading && !error && searchQuery && sortedNotes.length === 0 && (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
+            <div className="animate-fade-in-up rounded-xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
               <svg className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
