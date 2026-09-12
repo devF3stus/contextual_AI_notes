@@ -1,7 +1,59 @@
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return "";
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffSec = Math.floor((now - then) / 1000);
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: diffDay > 365 ? "numeric" : undefined,
+  });
+}
+
+function formatTime(dateStr) {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function getDateGroup(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const noteDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (noteDate.getTime() === today.getTime()) return "Today";
+  if (noteDate.getTime() === yesterday.getTime()) return "Yesterday";
+  if (noteDate >= weekStart) return "Earlier this week";
+  return "Older";
+}
+
 export default function NoteCard({ note, onEdit, onDelete, onClick }) {
   const preview = note.content.length > 150
     ? note.content.substring(0, 150) + "..."
     : note.content;
+
+  const dateToUse = note.updated_at || note.created_at;
+  const group = getDateGroup(dateToUse);
+  const isRecent = group === "Today" || group === "Yesterday";
+  const timestamp = isRecent
+    ? formatTime(dateToUse)
+    : note.updated_at !== note.created_at
+    ? `Edited ${formatRelativeTime(note.updated_at)}`
+    : formatRelativeTime(note.created_at);
 
   return (
     <div
@@ -27,6 +79,9 @@ export default function NoteCard({ note, onEdit, onDelete, onClick }) {
               </svg>
               {note.partition_name}
             </span>
+          )}
+          {timestamp && (
+            <span className="text-xs text-gray-400">{timestamp}</span>
           )}
         </div>
 

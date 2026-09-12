@@ -1,10 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 
+function formatTimestamp(dateStr) {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export default function NoteWriter({
   partitions,
   initialPartitionId,
   initialTitle,
   initialContent,
+  initialCreatedAt,
+  initialUpdatedAt,
   onSave,
   onClose,
 }) {
@@ -50,6 +63,8 @@ export default function NoteWriter({
     content !== (initialContent || "") ||
     partitionId !== (initialPartitionId || "");
 
+  const isEditing = !!initialCreatedAt;
+
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Top bar */}
@@ -85,6 +100,16 @@ export default function NoteWriter({
       {/* Writing area */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+          {/* Metadata */}
+          {isEditing && (
+            <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+              <span>Created {formatTimestamp(initialCreatedAt)}</span>
+              {initialUpdatedAt !== initialCreatedAt && (
+                <span>Edited {formatTimestamp(initialUpdatedAt)}</span>
+              )}
+            </div>
+          )}
+
           {/* Partition selector */}
           <div className="mb-6">
             <select

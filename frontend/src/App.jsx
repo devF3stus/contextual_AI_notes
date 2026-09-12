@@ -184,7 +184,36 @@ export default function App() {
         note.title.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const displayNotes = searchQuery ? filteredNotes : notes;
+  const sortedNotes = [...(searchQuery ? filteredNotes : notes)].sort((a, b) => {
+    const dateA = new Date(a.updated_at || a.created_at);
+    const dateB = new Date(b.updated_at || b.created_at);
+    return dateB - dateA;
+  });
+
+  function getDateGroup(dateStr) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+    const noteDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (noteDate.getTime() === today.getTime()) return "Today";
+    if (noteDate.getTime() === yesterday.getTime()) return "Yesterday";
+    if (noteDate >= weekStart) return "Earlier this week";
+    return "Older";
+  }
+
+  const groupedNotes = sortedNotes.reduce((groups, note) => {
+    const dateToUse = note.updated_at || note.created_at;
+    const group = getDateGroup(dateToUse);
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(note);
+    return groups;
+  }, {});
 
   const activePartitionName =
     activePartition && activePartition !== "all"
@@ -192,7 +221,7 @@ export default function App() {
       : null;
 
   const pageTitle = searchQuery
-    ? `Search results (${displayNotes.length})`
+    ? `Search results (${sortedNotes.length})`
     : activePartition === "all"
     ? "All Notes"
     : activePartitionName
@@ -213,6 +242,8 @@ export default function App() {
           }
           initialTitle={writingNote.mode === "edit" ? writingNote.note.title || "" : ""}
           initialContent={writingNote.mode === "edit" ? writingNote.note.content : ""}
+          initialCreatedAt={writingNote.mode === "edit" ? writingNote.note.created_at : null}
+          initialUpdatedAt={writingNote.mode === "edit" ? writingNote.note.updated_at : null}
           onSave={
             writingNote.mode === "new"
               ? handleCreateFromWriter
@@ -309,7 +340,7 @@ export default function App() {
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">
               {searchQuery
-                ? `Search results (${displayNotes.length})`
+                ? `Search results (${sortedNotes.length})`
                 : "Your Notes"}
             </h3>
             {!searchQuery && notes.length > 0 && (
@@ -355,21 +386,48 @@ export default function App() {
           )}
 
           {/* Notes grid */}
-          {!loading && !error && displayNotes.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {displayNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  onEdit={(n) =>
-                    setWritingNote({ mode: "edit", note: n })
-                  }
-                  onDelete={handleDeleteNote}
-                  onClick={() =>
-                    setWritingNote({ mode: "edit", note })
-                  }
-                />
-              ))}
+          {!loading && !error && sortedNotes.length > 0 && (
+            <div>
+              {searchQuery ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {sortedNotes.map((note) => (
+                    <NoteCard
+                      key={note.id}
+                      note={note}
+                      onEdit={(n) =>
+                        setWritingNote({ mode: "edit", note: n })
+                      }
+                      onDelete={handleDeleteNote}
+                      onClick={() =>
+                        setWritingNote({ mode: "edit", note })
+                      }
+                    />
+                  ))}
+                </div>
+              ) : (
+                Object.entries(groupedNotes).map(([group, notesInGroup]) => (
+                  <div key={group} className="mb-8">
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                      {group}
+                    </h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {notesInGroup.map((note) => (
+                        <NoteCard
+                          key={note.id}
+                          note={note}
+                          onEdit={(n) =>
+                            setWritingNote({ mode: "edit", note: n })
+                          }
+                          onDelete={handleDeleteNote}
+                          onClick={() =>
+                            setWritingNote({ mode: "edit", note })
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
@@ -408,7 +466,7 @@ export default function App() {
           )}
 
           {/* Empty: search no results */}
-          {!loading && !error && searchQuery && displayNotes.length === 0 && (
+          {!loading && !error && searchQuery && sortedNotes.length === 0 && (
             <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
               <svg className="mx-auto mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
