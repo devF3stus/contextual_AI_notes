@@ -5,6 +5,7 @@ import NoteCard from "./components/NoteCard";
 import NoteWriter from "./components/NoteWriter";
 import NoteEditor from "./components/NoteEditor";
 import PartitionModal from "./components/PartitionModal";
+import ThemeSettings from "./components/ThemeSettings";
 import Toast from "./components/Toast";
 import {
   fetchNotes,
@@ -25,6 +26,7 @@ export default function App() {
   const [editingNote, setEditingNote] = useState(null);
   const [writingNote, setWritingNote] = useState(null);
   const [partitionModal, setPartitionModal] = useState(null);
+  const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
@@ -289,6 +291,7 @@ export default function App() {
           setPartitionModal({ mode: "rename", partition: p })
         }
         onDeletePartition={handleDeletePartition}
+        onOpenSettings={() => setThemeSettingsOpen(true)}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -330,7 +333,7 @@ export default function App() {
                   partitionId: activePartition && activePartition !== "all" ? activePartition : null,
                 })
               }
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -361,7 +364,7 @@ export default function App() {
           {/* Loading */}
           {loading && (
             <div className="py-20 text-center">
-              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 dark:border-blue-800 dark:border-t-blue-400"></div>
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-blue-600 dark:border-blue-800 dark:border-t-blue-400"></div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Loading your notes...</p>
             </div>
           )}
@@ -463,7 +466,7 @@ export default function App() {
                         : null,
                   })
                 }
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -506,6 +509,11 @@ export default function App() {
           onSave={handleSavePartition}
           onClose={() => setPartitionModal(null)}
         />
+      )}
+
+      {/* Theme Settings modal */}
+      {themeSettingsOpen && (
+        <ThemeSettings onClose={() => setThemeSettingsOpen(false)} />
       )}
 
       {/* Toast */}

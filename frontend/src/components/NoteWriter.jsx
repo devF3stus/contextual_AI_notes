@@ -94,7 +94,7 @@ export default function NoteWriter({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Note"}
           </button>
@@ -119,7 +119,7 @@ export default function NoteWriter({
             <select
               value={partitionId}
               onChange={(e) => setPartitionId(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-primary-500 dark:focus:ring-primary-900/50"
             >
               <option value="">Uncategorized</option>
               {partitions.map((p) => (

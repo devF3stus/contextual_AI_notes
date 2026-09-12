@@ -77,7 +77,7 @@ export default function PartitionModal({ partition, onSave, onClose }) {
             }}
             placeholder="e.g. Church, Programming, Ideas"
             maxLength={50}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-primary-500 dark:focus:ring-primary-900/50"
           />
           {error && (
             <p className="mt-2 text-xs text-red-500 dark:text-red-400">{error}</p>
@@ -94,7 +94,7 @@ export default function PartitionModal({ partition, onSave, onClose }) {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? "Saving..." : partition ? "Rename" : "Create"}
             </button>
