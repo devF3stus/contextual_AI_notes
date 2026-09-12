@@ -240,7 +240,7 @@ export default function App() {
 
   if (writingNote) {
     return (
-      <div className="flex h-screen bg-white">
+      <div className="flex h-screen bg-white dark:bg-gray-900">
         <NoteWriter
           partitions={partitions}
           initialPartitionId={
@@ -273,7 +273,7 @@ export default function App() {
   // ─── Dashboard ──────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar
         mobileOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
@@ -297,28 +297,28 @@ export default function App() {
           <div className="mb-6 flex items-center gap-3 lg:hidden">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
+              className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="text-lg font-bold text-gray-900">Contextual AI Notes</h1>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white">Contextual AI Notes</h1>
           </div>
 
           {/* Page title */}
           <div className="mb-8 flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
                 {pageTitle}
               </h2>
               {activePartitionName && !searchQuery && (
-                <p className="mt-1 text-gray-500">
+                <p className="mt-1 text-gray-500 dark:text-gray-400">
                   {notes.length} {notes.length === 1 ? "note" : "notes"} in this partition
                 </p>
               )}
               {!activePartitionName && !searchQuery && (
-                <p className="mt-1 text-gray-500">
+                <p className="mt-1 text-gray-500 dark:text-gray-400">
                   Capture your thoughts and keep your ideas organized.
                 </p>
               )}
@@ -346,13 +346,13 @@ export default function App() {
 
           {/* Notes section header */}
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               {searchQuery
                 ? `Search results (${sortedNotes.length})`
                 : "Your Notes"}
             </h3>
             {!searchQuery && notes.length > 0 && (
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                 {notes.length} {notes.length === 1 ? "note" : "notes"}
               </span>
             )}
@@ -361,18 +361,18 @@ export default function App() {
           {/* Loading */}
           {loading && (
             <div className="py-20 text-center">
-              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
-              <p className="text-sm text-gray-500">Loading your notes...</p>
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 dark:border-blue-800 dark:border-t-blue-400"></div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Loading your notes...</p>
             </div>
           )}
 
           {/* Error */}
           {error && !loading && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-900/20">
               <svg className="mx-auto mb-3 h-10 w-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="mb-3 text-sm font-medium text-red-800">{error}</p>
+              <p className="mb-3 text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
               <button
                 onClick={() => {
                   setLoading(true);
@@ -386,7 +386,7 @@ export default function App() {
                     .catch(() => setError("Unable to connect to the server."))
                     .finally(() => setLoading(false));
                 }}
-                className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
+                className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 dark:bg-red-800 dark:text-red-200 dark:hover:bg-red-700"
               >
                 Try Again
               </button>
@@ -415,7 +415,7 @@ export default function App() {
               ) : (
                 Object.entries(groupedNotes).map(([group, notesInGroup]) => (
                   <div key={group} className="mb-8">
-                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                       {group}
                     </h4>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -441,14 +441,14 @@ export default function App() {
 
           {/* Empty: no notes at all */}
           {!loading && !error && notes.length === 0 && !searchQuery && (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
+              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              <h3 className="mb-1 text-lg font-semibold text-gray-900">
+              <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
                 {activePartitionName ? "This partition is empty" : "No notes yet"}
               </h3>
-              <p className="mb-6 text-sm text-gray-500">
+              <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
                 {activePartitionName
                   ? "Add a note to this partition to get started."
                   : "Capture your first thought and start building your personal knowledge space."}
@@ -475,12 +475,12 @@ export default function App() {
 
           {/* Empty: search no results */}
           {!loading && !error && searchQuery && sortedNotes.length === 0 && (
-            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="rounded-xl border-2 border-dashed border-gray-200 py-16 text-center dark:border-gray-700">
+              <svg className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <h3 className="mb-1 text-lg font-semibold text-gray-900">No notes found</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">No notes found</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 No notes found for &ldquo;{searchQuery}&rdquo;
               </p>
             </div>

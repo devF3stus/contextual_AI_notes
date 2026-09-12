@@ -70,16 +70,16 @@ export default function NoteWriter({
   const isEditing = !!initialCreatedAt;
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-white dark:bg-gray-900">
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6 dark:border-gray-700">
         <button
           onClick={() => {
             if (hasUnsavedChanges && !window.confirm("Discard unsaved changes?"))
               return;
             onClose();
           }}
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -88,7 +88,7 @@ export default function NoteWriter({
         </button>
 
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-gray-400 sm:inline">
+          <span className="hidden text-xs text-gray-400 sm:inline dark:text-gray-500">
             Ctrl+S to save
           </span>
           <button
@@ -106,7 +106,7 @@ export default function NoteWriter({
         <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
           {/* Metadata */}
           {isEditing && (
-            <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+            <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
               <span>Created {formatTimestamp(initialCreatedAt)}</span>
               {initialUpdatedAt !== initialCreatedAt && (
                 <span>Edited {formatTimestamp(initialUpdatedAt)}</span>
@@ -119,7 +119,7 @@ export default function NoteWriter({
             <select
               value={partitionId}
               onChange={(e) => setPartitionId(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
             >
               <option value="">Uncategorized</option>
               {partitions.map((p) => (
@@ -138,11 +138,11 @@ export default function NoteWriter({
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Title"
-            className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300 sm:text-3xl"
+            className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300 sm:text-3xl dark:text-white dark:placeholder:text-gray-600"
           />
 
           {/* Divider */}
-          <div className="mb-6 border-b border-gray-100"></div>
+          <div className="mb-6 border-b border-gray-100 dark:border-gray-700"></div>
 
           {/* Content */}
           <RichTextEditor

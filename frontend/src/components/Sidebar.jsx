@@ -1,3 +1,5 @@
+import { useTheme } from "../context/ThemeContext";
+
 export default function Sidebar({
   mobileOpen,
   onClose,
@@ -8,6 +10,8 @@ export default function Sidebar({
   onRenamePartition,
   onDeletePartition,
 }) {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <>
       {mobileOpen && (
@@ -18,22 +22,22 @@ export default function Sidebar({
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 border-r border-gray-200 bg-white transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full w-64 border-r border-gray-200 bg-white transition-transform duration-200 ease-in-out dark:border-gray-700 dark:bg-gray-900 lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5 dark:border-gray-700">
             <div>
-              <h1 className="text-lg font-bold text-gray-900">
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white">
                 Contextual AI Notes
               </h1>
-              <p className="mt-0.5 text-xs text-gray-400">Personal Knowledge</p>
+              <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Personal Knowledge</p>
             </div>
             <button
               onClick={onClose}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 lg:hidden"
+              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300 lg:hidden"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -66,14 +70,14 @@ export default function Sidebar({
           </nav>
 
           {/* Partitions */}
-          <div className="flex-1 overflow-y-auto border-t border-gray-100 px-3 py-4">
+          <div className="flex-1 overflow-y-auto border-t border-gray-100 px-3 py-4 dark:border-gray-700">
             <div className="mb-2 flex items-center justify-between px-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                 Partitions
               </p>
               <button
                 onClick={onAddPartition}
-                className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                 title="Add Partition"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,23 +92,23 @@ export default function Sidebar({
                   key={partition.id}
                   className={`group flex items-center rounded-lg transition-colors ${
                     activePartition === partition.id
-                      ? "bg-blue-50"
-                      : "hover:bg-gray-50"
+                      ? "bg-blue-50 dark:bg-blue-900/30"
+                      : "hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   <button
                     onClick={() => onSelectPartition(partition.id)}
                     className={`flex flex-1 items-center gap-3 px-3 py-2 text-sm font-medium transition-colors ${
                       activePartition === partition.id
-                        ? "text-blue-700"
-                        : "text-gray-600"
+                        ? "text-blue-700 dark:text-blue-400"
+                        : "text-gray-600 dark:text-gray-400"
                     }`}
                   >
-                    <svg className="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-4 w-4 flex-shrink-0 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     <span className="flex-1 truncate text-left">{partition.name}</span>
-                    <span className="text-xs text-gray-400">{partition.note_count}</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">{partition.note_count}</span>
                   </button>
 
                   <div className="hidden pr-2 group-hover:flex">
@@ -113,7 +117,7 @@ export default function Sidebar({
                         e.stopPropagation();
                         onRenamePartition(partition);
                       }}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                      className="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                       title="Rename"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -125,7 +129,7 @@ export default function Sidebar({
                         e.stopPropagation();
                         onDeletePartition(partition);
                       }}
-                      className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-600"
+                      className="rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                       title="Delete"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,7 +143,7 @@ export default function Sidebar({
 
             <button
               onClick={onAddPartition}
-              className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+              className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-300"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -149,8 +153,23 @@ export default function Sidebar({
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-100 px-4 py-4">
-            <p className="px-2 text-xs text-gray-400">
+          <div className="border-t border-gray-100 px-4 py-4 dark:border-gray-700">
+            <button
+              onClick={toggleTheme}
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+            >
+              {theme === "dark" ? (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            </button>
+            <p className="px-2 pt-2 text-xs text-gray-400 dark:text-gray-500">
               Contextual AI Notes v1.0
             </p>
           </div>
@@ -166,8 +185,8 @@ function SidebarItem({ icon, label, active, onClick }) {
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
         active
-          ? "bg-blue-50 text-blue-700"
-          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-300"
       }`}
     >
       {icon}

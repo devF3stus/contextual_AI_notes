@@ -46,16 +46,16 @@ export default function PartitionModal({ partition, onSave, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-white shadow-2xl animate-scale-in"
+        className="w-full max-w-sm rounded-2xl bg-white shadow-2xl animate-scale-in dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {partition ? "Rename Partition" : "New Partition"}
           </h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -64,7 +64,7 @@ export default function PartitionModal({ partition, onSave, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-4">
-          <label className="mb-2 block text-sm font-medium text-gray-700">
+          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Partition name
           </label>
           <input
@@ -77,17 +77,17 @@ export default function PartitionModal({ partition, onSave, onClose }) {
             }}
             placeholder="e.g. Church, Programming, Ideas"
             maxLength={50}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:ring-blue-900/50"
           />
           {error && (
-            <p className="mt-2 text-xs text-red-500">{error}</p>
+            <p className="mt-2 text-xs text-red-500 dark:text-red-400">{error}</p>
           )}
 
           <div className="mt-5 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
             >
               Cancel
             </button>
