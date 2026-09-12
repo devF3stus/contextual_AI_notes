@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import RichTextEditor from "./RichTextEditor";
 
 function formatTimestamp(dateStr) {
   if (!dateStr) return "";
@@ -25,10 +26,11 @@ export default function NoteWriter({
   const [content, setContent] = useState(initialContent || "");
   const [partitionId, setPartitionId] = useState(initialPartitionId || "");
   const [saving, setSaving] = useState(false);
-  const textareaRef = useRef(null);
+  const titleRef = useRef(null);
+  const editorRef = useRef(null);
 
   useEffect(() => {
-    if (textareaRef.current) textareaRef.current.focus();
+    if (titleRef.current) titleRef.current.focus();
   }, []);
 
   useEffect(() => {
@@ -40,10 +42,12 @@ export default function NoteWriter({
   }, [onClose]);
 
   async function handleSave() {
-    if ((content.trim() === "" && title.trim() === "") || saving) return;
+    const editorContent = editorRef.current?.getHTML() || "";
+    const plainText = editorRef.current?.getText() || "";
+    if ((plainText.trim() === "" && title.trim() === "") || saving) return;
     setSaving(true);
     try {
-      await onSave(title.trim() || null, content, partitionId || null);
+      await onSave(title.trim() || null, editorContent, partitionId || null);
     } catch (err) {
       console.error("Failed to save note:", err);
     } finally {
@@ -89,7 +93,7 @@ export default function NoteWriter({
           </span>
           <button
             onClick={handleSave}
-            disabled={(content.trim() === "" && title.trim() === "") || saving}
+            disabled={saving}
             className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Note"}
@@ -128,9 +132,11 @@ export default function NoteWriter({
 
           {/* Title */}
           <input
+            ref={titleRef}
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Title"
             className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300 sm:text-3xl"
           />
@@ -139,13 +145,10 @@ export default function NoteWriter({
           <div className="mb-6 border-b border-gray-100"></div>
 
           {/* Content */}
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Start writing..."
-            className="min-h-[50vh] w-full resize-none border-0 bg-transparent text-base leading-relaxed text-gray-800 outline-none placeholder:text-gray-300"
+          <RichTextEditor
+            content={content}
+            onChange={setContent}
+            editorRef={editorRef}
           />
         </div>
       </div>

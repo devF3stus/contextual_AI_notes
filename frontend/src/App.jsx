@@ -177,12 +177,20 @@ export default function App() {
 
   // ─── Derived state ──────────────────────────────────────────
 
-  const filteredNotes = notes.filter(
-    (note) =>
-      note.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  function stripHtml(html) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
+  }
+
+  const filteredNotes = notes.filter((note) => {
+    const plainContent = stripHtml(note.content);
+    return (
+      plainContent.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (note.title &&
         note.title.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+    );
+  });
 
   const sortedNotes = [...(searchQuery ? filteredNotes : notes)].sort((a, b) => {
     const dateA = new Date(a.updated_at || a.created_at);

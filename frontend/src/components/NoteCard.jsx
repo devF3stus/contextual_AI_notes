@@ -41,10 +41,17 @@ function getDateGroup(dateStr) {
   return "Older";
 }
 
+function stripHtml(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
+
 export default function NoteCard({ note, onEdit, onDelete, onClick }) {
-  const preview = note.content.length > 150
-    ? note.content.substring(0, 150) + "..."
-    : note.content;
+  const plainContent = stripHtml(note.content);
+  const preview = plainContent.length > 150
+    ? plainContent.substring(0, 150) + "..."
+    : plainContent;
 
   const dateToUse = note.updated_at || note.created_at;
   const group = getDateGroup(dateToUse);
