@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../context/ThemeContext";
 
-export default function ThemeSettings({ onClose }) {
+export default function ThemeSettings({ onClose, onOpenBackground }) {
   const {
     theme,
     toggleTheme,
@@ -10,6 +10,7 @@ export default function ThemeSettings({ onClose }) {
     enableCustomColor,
     disableCustomColor,
     presetColors,
+    backgroundImage,
   } = useTheme();
 
   const [customColor, setCustomColor] = useState(primaryColor || "#3b82f6");
@@ -146,6 +147,35 @@ export default function ThemeSettings({ onClose }) {
                 {customColor.toUpperCase()}
               </span>
             </div>
+          </div>
+
+          {/* Background Settings Button */}
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Background
+            </h3>
+            <button
+              onClick={onOpenBackground}
+              className="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+            >
+              <div
+                className="h-12 w-12 flex-shrink-0 rounded-lg"
+                style={{
+                  background: backgroundImage || "linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)",
+                }}
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {backgroundImage ? "Change Background" : "Set Background"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {backgroundImage ? "Custom background active" : "Add a custom background image or gradient"}
+                </p>
+              </div>
+              <svg className="ml-auto h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
 
           {/* Preview */}

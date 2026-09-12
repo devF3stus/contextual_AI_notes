@@ -6,7 +6,9 @@ import NoteWriter from "./components/NoteWriter";
 import NoteEditor from "./components/NoteEditor";
 import PartitionModal from "./components/PartitionModal";
 import ThemeSettings from "./components/ThemeSettings";
+import BackgroundSettings from "./components/BackgroundSettings";
 import Toast from "./components/Toast";
+import { useTheme } from "./context/ThemeContext";
 import {
   fetchNotes,
   createNote,
@@ -19,6 +21,7 @@ import {
 } from "./services/api";
 
 export default function App() {
+  const { backgroundImage } = useTheme();
   const [notes, setNotes] = useState([]);
   const [partitions, setPartitions] = useState([]);
   const [activePartition, setActivePartition] = useState(null);
@@ -27,6 +30,7 @@ export default function App() {
   const [writingNote, setWritingNote] = useState(null);
   const [partitionModal, setPartitionModal] = useState(null);
   const [themeSettingsOpen, setThemeSettingsOpen] = useState(false);
+  const [backgroundSettingsOpen, setBackgroundSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
@@ -274,8 +278,24 @@ export default function App() {
 
   // ─── Dashboard ──────────────────────────────────────────────
 
+  const hasBackground = backgroundImage && backgroundImage.length > 0;
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="relative flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+      {/* Background image layer */}
+      {hasBackground && (
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ background: backgroundImage }}
+        />
+      )}
+
+      {/* Overlay for readability */}
+      {hasBackground && (
+        <div className="pointer-events-none absolute inset-0 z-0 bg-white/70 dark:bg-gray-900/80" />
+      )}
+
+      <div className="relative z-10 flex h-full w-full">
       <Sidebar
         mobileOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
@@ -513,7 +533,18 @@ export default function App() {
 
       {/* Theme Settings modal */}
       {themeSettingsOpen && (
-        <ThemeSettings onClose={() => setThemeSettingsOpen(false)} />
+        <ThemeSettings
+          onClose={() => setThemeSettingsOpen(false)}
+          onOpenBackground={() => {
+            setThemeSettingsOpen(false);
+            setBackgroundSettingsOpen(true);
+          }}
+        />
+      )}
+
+      {/* Background Settings modal */}
+      {backgroundSettingsOpen && (
+        <BackgroundSettings onClose={() => setBackgroundSettingsOpen(false)} />
       )}
 
       {/* Toast */}
@@ -524,6 +555,7 @@ export default function App() {
           onClose={() => setToast(null)}
         />
       )}
+      </div>
     </div>
   );
 }

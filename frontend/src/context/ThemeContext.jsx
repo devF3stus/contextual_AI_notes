@@ -48,6 +48,10 @@ export function ThemeProvider({ children }) {
     return localStorage.getItem("useCustomColor") === "true";
   });
 
+  const [backgroundImage, setBackgroundImage] = useState(() => {
+    return localStorage.getItem("backgroundImage") || null;
+  });
+
   useEffect(() => {
     const root = document.documentElement;
     if (theme === "dark") {
@@ -66,6 +70,14 @@ export function ThemeProvider({ children }) {
     }
     localStorage.setItem("useCustomColor", useCustomColor.toString());
   }, [useCustomColor, primaryColor]);
+
+  useEffect(() => {
+    if (backgroundImage) {
+      localStorage.setItem("backgroundImage", backgroundImage);
+    } else {
+      localStorage.removeItem("backgroundImage");
+    }
+  }, [backgroundImage]);
 
   function toggleTheme() {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
@@ -86,6 +98,14 @@ export function ThemeProvider({ children }) {
     removeColorPalette();
   }
 
+  function setBackground(imageDataUrl) {
+    setBackgroundImage(imageDataUrl);
+  }
+
+  function removeBackground() {
+    setBackgroundImage(null);
+  }
+
   return (
     <ThemeContext.Provider
       value={{
@@ -97,6 +117,9 @@ export function ThemeProvider({ children }) {
         enableCustomColor,
         disableCustomColor,
         presetColors: PRESET_COLORS,
+        backgroundImage,
+        setBackground,
+        removeBackground,
       }}
     >
       {children}
