@@ -131,7 +131,7 @@ app.put("/api/notes/:id", async (req, res) => {
     if (partition_id !== undefined) {
       const result = await pool.query(
         `UPDATE public.notes
-         SET title = $1, content = $2, partition_id = $3
+         SET title = $1, content = $2, partition_id = $3, updated_at = NOW()
          WHERE id = $4
          RETURNING *, (SELECT name FROM public.partitions WHERE id = $3) AS partition_name`,
         [title !== undefined ? title : null, content, partition_id, id]
@@ -140,9 +140,9 @@ app.put("/api/notes/:id", async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE public.notes
-       SET title = $1, content = $2
-       WHERE id = $3
+       `UPDATE public.notes
+        SET title = $1, content = $2, updated_at = NOW()
+        WHERE id = $3
        RETURNING *, (SELECT name FROM public.partitions WHERE id = partition_id) AS partition_name`,
       [title !== undefined ? title : null, content, id]
     );
