@@ -248,6 +248,7 @@ export default function App() {
     return (
       <div className="flex h-screen bg-white dark:bg-gray-900">
         <NoteWriter
+          noteId={writingNote.mode === "edit" ? writingNote.note.id : null}
           partitions={partitions}
           initialPartitionId={
             writingNote.mode === "new"

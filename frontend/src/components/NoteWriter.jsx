@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import RichTextEditor from "./RichTextEditor";
+import StickyNotes from "./StickyNotes";
 
 function formatTimestamp(dateStr) {
   if (!dateStr) return "";
@@ -13,6 +14,7 @@ function formatTimestamp(dateStr) {
 }
 
 export default function NoteWriter({
+  noteId,
   partitions,
   initialPartitionId,
   initialTitle,
@@ -101,57 +103,74 @@ export default function NoteWriter({
         </div>
       </div>
 
-      {/* Writing area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-          {/* Metadata */}
-          {isEditing && (
-            <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
-              <span>Created {formatTimestamp(initialCreatedAt)}</span>
-              {initialUpdatedAt !== initialCreatedAt && (
-                <span>Edited {formatTimestamp(initialUpdatedAt)}</span>
-              )}
+      {/* Content area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main editor */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+            {/* Metadata */}
+            {isEditing && (
+              <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
+                <span>Created {formatTimestamp(initialCreatedAt)}</span>
+                {initialUpdatedAt !== initialCreatedAt && (
+                  <span>Edited {formatTimestamp(initialUpdatedAt)}</span>
+                )}
+              </div>
+            )}
+
+            {/* Partition selector */}
+            <div className="mb-6">
+              <select
+                value={partitionId}
+                onChange={(e) => setPartitionId(e.target.value)}
+                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-primary-500 dark:focus:ring-primary-900/50"
+              >
+                <option value="">Uncategorized</option>
+                {partitions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
 
-          {/* Partition selector */}
-          <div className="mb-6">
-            <select
-              value={partitionId}
-              onChange={(e) => setPartitionId(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-primary-500 dark:focus:ring-primary-900/50"
-            >
-              <option value="">Uncategorized</option>
-              {partitions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            {/* Title */}
+            <input
+              ref={titleRef}
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Title"
+              className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300 sm:text-3xl dark:text-white dark:placeholder:text-gray-600"
+            />
+
+            {/* Divider */}
+            <div className="mb-6 border-b border-gray-100 dark:border-gray-700"></div>
+
+            {/* Content */}
+            <RichTextEditor
+              content={content}
+              onChange={setContent}
+              editorRef={editorRef}
+            />
           </div>
-
-          {/* Title */}
-          <input
-            ref={titleRef}
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Title"
-            className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-gray-900 outline-none placeholder:text-gray-300 sm:text-3xl dark:text-white dark:placeholder:text-gray-600"
-          />
-
-          {/* Divider */}
-          <div className="mb-6 border-b border-gray-100 dark:border-gray-700"></div>
-
-          {/* Content */}
-          <RichTextEditor
-            content={content}
-            onChange={setContent}
-            editorRef={editorRef}
-          />
         </div>
+
+        {/* Sticky notes panel - desktop side panel, edit mode only */}
+        {isEditing && noteId && (
+          <div className="hidden w-72 flex-shrink-0 border-l border-gray-100 dark:border-gray-700 lg:flex lg:flex-col">
+            <StickyNotes noteId={noteId} />
+          </div>
+        )}
       </div>
+
+      {/* Sticky notes - mobile/tablet bottom panel, edit mode only */}
+      {isEditing && noteId && (
+        <div className="h-64 flex-shrink-0 border-t border-gray-100 sm:h-72 lg:hidden dark:border-gray-700">
+          <StickyNotes noteId={noteId} />
+        </div>
+      )}
     </div>
   );
 }
