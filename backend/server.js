@@ -167,16 +167,106 @@ app.delete("/api/notes/:id", async (req, res) => {
   }
 });
 
-// ─── STICKY NOTES ──────────────────────────────────────────────
+// ─── NOTE PAGES ────────────────────────────────────────────────
 
-app.get("/api/notes/:noteId/sticky-notes", async (req, res) => {
+app.get("/api/notes/:noteId/pages", async (req, res) => {
   try {
     const { noteId } = req.params;
     const result = await pool.query(
-      `SELECT * FROM public.sticky_notes
+      `SELECT * FROM public.note_pages
        WHERE note_id = $1
-       ORDER BY created_at ASC`,
+       ORDER BY page_number ASC`,
       [noteId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching pages:", error);
+    res.status(500).json({ error: "Failed to fetch pages" });
+  }
+});
+
+app.post("/api/notes/:noteId/pages", async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    const { content, page_number } = req.body;
+    const result = await pool.query(
+      `INSERT INTO public.note_pages (note_id, page_number, content)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [noteId, page_number || 1, content || ""]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error creating page:", error);
+    res.status(500).json({ error: "Failed to create page" });
+  }
+});
+
+app.get("/api/pages/:pageId", async (req, res) => {
+  try {
+    const { pageId } = req.params;
+    const result = await pool.query(
+      "SELECT * FROM public.note_pages WHERE id = $1",
+      [pageId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Page not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching page:", error);
+    res.status(500).json({ error: "Failed to fetch page" });
+  }
+});
+
+app.put("/api/pages/:pageId", async (req, res) => {
+  try {
+    const { pageId } = req.params;
+    const { content } = req.body;
+    const result = await pool.query(
+      `UPDATE public.note_pages
+       SET content = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [content, pageId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Page not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating page:", error);
+    res.status(500).json({ error: "Failed to update page" });
+  }
+});
+
+app.delete("/api/pages/:pageId", async (req, res) => {
+  try {
+    const { pageId } = req.params;
+    const result = await pool.query(
+      "DELETE FROM public.note_pages WHERE id = $1 RETURNING *",
+      [pageId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Page not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error deleting page:", error);
+    res.status(500).json({ error: "Failed to delete page" });
+  }
+});
+
+// ─── STICKY NOTES ──────────────────────────────────────────────
+
+app.get("/api/pages/:pageId/sticky-notes", async (req, res) => {
+  try {
+    const { pageId } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM public.sticky_notes
+       WHERE page_id = $1
+       ORDER BY created_at ASC`,
+      [pageId]
     );
     res.json(result.rows);
   } catch (error) {
@@ -185,18 +275,18 @@ app.get("/api/notes/:noteId/sticky-notes", async (req, res) => {
   }
 });
 
-app.post("/api/notes/:noteId/sticky-notes", async (req, res) => {
+app.post("/api/pages/:pageId/sticky-notes", async (req, res) => {
   try {
-    const { noteId } = req.params;
+    const { pageId } = req.params;
     const { content } = req.body;
     if (!content || content.trim() === "") {
       return res.status(400).json({ error: "Sticky note content is required" });
     }
     const result = await pool.query(
-      `INSERT INTO public.sticky_notes (note_id, content)
+      `INSERT INTO public.sticky_notes (page_id, content)
        VALUES ($1, $2)
        RETURNING *`,
-      [noteId, content.trim()]
+      [pageId, content.trim()]
     );
     res.json(result.rows[0]);
   } catch (error) {
