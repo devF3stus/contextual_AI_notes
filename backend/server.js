@@ -167,6 +167,85 @@ app.delete("/api/notes/:id", async (req, res) => {
   }
 });
 
+// ─── STICKY NOTES ──────────────────────────────────────────────
+
+app.get("/api/notes/:noteId/sticky-notes", async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM public.sticky_notes
+       WHERE note_id = $1
+       ORDER BY created_at ASC`,
+      [noteId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching sticky notes:", error);
+    res.status(500).json({ error: "Failed to fetch sticky notes" });
+  }
+});
+
+app.post("/api/notes/:noteId/sticky-notes", async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    const { content } = req.body;
+    if (!content || content.trim() === "") {
+      return res.status(400).json({ error: "Sticky note content is required" });
+    }
+    const result = await pool.query(
+      `INSERT INTO public.sticky_notes (note_id, content)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [noteId, content.trim()]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error creating sticky note:", error);
+    res.status(500).json({ error: "Failed to create sticky note" });
+  }
+});
+
+app.put("/api/sticky-notes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    if (!content || content.trim() === "") {
+      return res.status(400).json({ error: "Sticky note content is required" });
+    }
+    const result = await pool.query(
+      `UPDATE public.sticky_notes
+       SET content = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [content.trim(), id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Sticky note not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error updating sticky note:", error);
+    res.status(500).json({ error: "Failed to update sticky note" });
+  }
+});
+
+app.delete("/api/sticky-notes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "DELETE FROM public.sticky_notes WHERE id = $1 RETURNING *",
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Sticky note not found" });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error deleting sticky note:", error);
+    res.status(500).json({ error: "Failed to delete sticky note" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
