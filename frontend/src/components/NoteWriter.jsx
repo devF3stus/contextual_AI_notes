@@ -104,7 +104,7 @@ export default function NoteWriter({
       </div>
 
       {/* Content area */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Main editor */}
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -157,20 +157,20 @@ export default function NoteWriter({
           </div>
         </div>
 
-        {/* Sticky notes panel - desktop side panel, edit mode only */}
+        {/* Sticky notes - mobile/tablet bottom panel, edit mode only */}
+        {isEditing && noteId && (
+          <div className="h-56 flex-shrink-0 border-t border-gray-100 sm:h-64 lg:hidden dark:border-gray-700">
+            <StickyNotes noteId={noteId} />
+          </div>
+        )}
+
+        {/* Sticky notes - desktop side panel, edit mode only */}
         {isEditing && noteId && (
           <div className="hidden w-72 flex-shrink-0 border-l border-gray-100 dark:border-gray-700 lg:flex lg:flex-col">
             <StickyNotes noteId={noteId} />
           </div>
         )}
       </div>
-
-      {/* Sticky notes - mobile/tablet bottom panel, edit mode only */}
-      {isEditing && noteId && (
-        <div className="h-64 flex-shrink-0 border-t border-gray-100 sm:h-72 lg:hidden dark:border-gray-700">
-          <StickyNotes noteId={noteId} />
-        </div>
-      )}
     </div>
   );
 }

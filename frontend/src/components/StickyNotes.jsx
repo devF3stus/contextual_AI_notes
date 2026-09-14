@@ -81,7 +81,7 @@ function StickyNoteCard({ note, onEdit, onDelete }) {
           {note.content}
         </p>
       </div>
-      <div className="flex items-center gap-2 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+      <div className="flex items-center gap-2 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100">
         <button
           onClick={() => setEditing(true)}
           className="rounded px-2 py-1 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/50"
