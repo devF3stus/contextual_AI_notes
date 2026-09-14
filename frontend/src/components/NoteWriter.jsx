@@ -66,6 +66,7 @@ export default function NoteWriter({
     }
     loadPages();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId, isEditing]);
 
   useEffect(() => {
@@ -281,7 +282,7 @@ export default function NoteWriter({
 
             {/* Page indicator - top */}
             {isEditing && totalPages > 0 && (
-              <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2 dark:bg-gray-800">
+              <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-2 py-2 sm:px-4 dark:bg-gray-800">
                 <button
                   onClick={() => goToPage(currentPageIndex - 1)}
                   disabled={currentPageIndex === 0}
@@ -290,17 +291,17 @@ export default function NoteWriter({
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  Prev
+                  <span className="hidden sm:inline">Prev</span>
                 </button>
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Page {currentPageNumber} of {totalPages}
+                  {currentPageNumber} / {totalPages}
                 </span>
                 <button
                   onClick={() => goToPage(currentPageIndex + 1)}
                   disabled={currentPageIndex >= totalPages - 1}
                   className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -320,7 +321,7 @@ export default function NoteWriter({
 
             {/* Page indicator - bottom */}
             {isEditing && totalPages > 0 && (
-              <div className="mt-6 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2 dark:bg-gray-800">
+              <div className="mt-6 flex items-center justify-between rounded-lg bg-gray-50 px-2 py-2 sm:px-4 dark:bg-gray-800">
                 <button
                   onClick={() => goToPage(currentPageIndex - 1)}
                   disabled={currentPageIndex === 0}
@@ -329,7 +330,7 @@ export default function NoteWriter({
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  Prev
+                  <span className="hidden sm:inline">Prev</span>
                 </button>
                 <button
                   onClick={addPage}
@@ -339,14 +340,14 @@ export default function NoteWriter({
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  Add Page
+                  <span className="hidden sm:inline">Add Page</span>
                 </button>
                 <button
                   onClick={() => goToPage(currentPageIndex + 1)}
                   disabled={currentPageIndex >= totalPages - 1}
                   className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -358,7 +359,7 @@ export default function NoteWriter({
 
         {/* Sticky notes - mobile/tablet bottom panel, edit mode only */}
         {isEditing && noteId && pages.length > 0 && (
-          <div className="h-56 flex-shrink-0 border-t border-gray-100 sm:h-64 lg:hidden dark:border-gray-700">
+          <div className="h-40 flex-shrink-0 border-t border-gray-100 sm:h-52 lg:hidden dark:border-gray-700">
             <StickyNotes key={pages[currentPageIndex]?.id} pageId={pages[currentPageIndex]?.id} />
           </div>
         )}
