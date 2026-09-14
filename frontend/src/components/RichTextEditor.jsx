@@ -2,7 +2,9 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
+
+const PAGE_MAX_HEIGHT = 800;
 
 function ToolbarButton({ onClick, isActive, children, title }) {
   return (
@@ -25,7 +27,52 @@ function ToolbarDivider() {
   return <div className="mx-1 h-6 w-px bg-gray-200 dark:bg-gray-700" />;
 }
 
-export default function RichTextEditor({ content, onChange, editorRef }) {
+function findSplitPoint(editorView, maxHeight) {
+  const editorEl = editorView.dom;
+  if (!editorEl) return null;
+
+  const children = editorEl.children;
+  if (!children || children.length === 0) return null;
+
+  const editorRect = editorEl.getBoundingClientRect();
+
+  let lastFittingIndex = -1;
+
+  for (let i = 0; i < children.length; i++) {
+    const childRect = children[i].getBoundingClientRect();
+    const childBottom = childRect.bottom - editorRect.top;
+
+    if (childBottom <= maxHeight) {
+      lastFittingIndex = i;
+    } else {
+      break;
+    }
+  }
+
+  if (lastFittingIndex < 0) return null;
+
+  let keepHtml = "";
+  let moveHtml = "";
+
+  for (let i = 0; i < children.length; i++) {
+    const childHtml = children[i].outerHTML;
+    if (i <= lastFittingIndex) {
+      keepHtml += childHtml;
+    } else {
+      moveHtml += childHtml;
+    }
+  }
+
+  if (!moveHtml.trim()) return null;
+
+  return { keepHtml, moveHtml };
+}
+
+export default function RichTextEditor({ content, onChange, editorRef, onOverflow }) {
+  const containerRef = useRef(null);
+  const checkTimeoutRef = useRef(null);
+  const isSplittingRef = useRef(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -44,8 +91,31 @@ export default function RichTextEditor({ content, onChange, editorRef }) {
           "prose prose-sm sm:prose max-w-none focus:outline-none min-h-[300px] px-1 py-2 text-gray-900 leading-relaxed dark:text-gray-100",
       },
     },
-    onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML());
+    onUpdate: ({ editor: updatedEditor }) => {
+      onChange?.(updatedEditor.getHTML());
+
+      if (onOverflow && !isSplittingRef.current) {
+        if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current);
+        checkTimeoutRef.current = setTimeout(() => {
+          requestAnimationFrame(() => {
+            if (isSplittingRef.current) return;
+            const container = containerRef.current;
+            if (!container) return;
+
+            const editorContent = container.querySelector(".tiptap");
+            if (!editorContent) return;
+
+            const scrollHeight = editorContent.scrollHeight;
+            if (scrollHeight > PAGE_MAX_HEIGHT) {
+              const split = findSplitPoint(updatedEditor.view, PAGE_MAX_HEIGHT);
+              if (split) {
+                isSplittingRef.current = true;
+                onOverflow(split.moveHtml, split.keepHtml);
+              }
+            }
+          });
+        }, 100);
+      }
     },
   });
 
@@ -58,6 +128,12 @@ export default function RichTextEditor({ content, onChange, editorRef }) {
       editor.commands.setContent(content || "");
     }
   }, [content, editor]);
+
+  useEffect(() => {
+    return () => {
+      if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current);
+    };
+  }, []);
 
   const setLink = useCallback(() => {
     if (!editor) return;
@@ -74,7 +150,7 @@ export default function RichTextEditor({ content, onChange, editorRef }) {
   if (!editor) return null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <div ref={containerRef} className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 border-b border-gray-200 px-2 py-1.5 dark:border-gray-700">
         <ToolbarButton

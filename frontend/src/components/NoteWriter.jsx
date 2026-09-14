@@ -131,6 +131,36 @@ export default function NoteWriter({
     }
   }, [noteId, pages, creatingPage, saveCurrentPage]);
 
+  // Handle automatic pagination when content overflows
+  const handleOverflow = useCallback(async (excessHtml, keptHtml) => {
+    if (!noteId || creatingPage) return;
+    try {
+      // Save current page with kept content
+      const currentPage = pages[currentPageIndex];
+      if (currentPage) {
+        await updatePage(currentPage.id, keptHtml);
+        setPages((prev) =>
+          prev.map((p, i) => (i === currentPageIndex ? { ...p, content: keptHtml } : p))
+        );
+      }
+
+      // Create new page with overflow content
+      const newPage = await createPage(noteId, excessHtml, pages.length + 1);
+      setPages((prev) => [...prev, newPage]);
+      setCurrentPageIndex(pages.length);
+      setPageContent(excessHtml);
+
+      // Update editor to show only kept content, then switch
+      if (editorRef.current) {
+        editorRef.current.commands.setContent(keptHtml);
+      }
+
+      setEditorDirty(false);
+    } catch (err) {
+      console.error("Failed to auto-paginate:", err);
+    }
+  }, [noteId, pages, currentPageIndex, creatingPage]);
+
   async function handleSave() {
     const editorContent = editorRef.current?.getHTML() || "";
     const plainText = editorRef.current?.getText() || "";
@@ -284,6 +314,7 @@ export default function NoteWriter({
                 content={pageContent}
                 onChange={handleContentChange}
                 editorRef={editorRef}
+                onOverflow={isEditing && noteId ? handleOverflow : undefined}
               />
             )}
 
