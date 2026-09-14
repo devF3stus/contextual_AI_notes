@@ -75,3 +75,39 @@ export async function deletePartition(id) {
   if (!response.ok) throw new Error("Failed to delete partition");
   return response.json();
 }
+
+// ─── Sticky Notes ──────────────────────────────────────────────
+
+export async function fetchStickyNotes(noteId) {
+  const response = await fetch(`${API_BASE}/notes/${noteId}/sticky-notes`);
+  if (!response.ok) throw new Error("Failed to fetch sticky notes");
+  return response.json();
+}
+
+export async function createStickyNote(noteId, content) {
+  const response = await fetch(`${API_BASE}/notes/${noteId}/sticky-notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) throw new Error("Failed to create sticky note");
+  return response.json();
+}
+
+export async function updateStickyNote(id, content) {
+  const response = await fetch(`${API_BASE}/sticky-notes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) throw new Error("Failed to update sticky note");
+  return response.json();
+}
+
+export async function deleteStickyNote(id) {
+  const response = await fetch(`${API_BASE}/sticky-notes/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete sticky note");
+  return response.json();
+}
