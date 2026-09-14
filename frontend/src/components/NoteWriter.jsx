@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import RichTextEditor from "./RichTextEditor";
 import StickyNotes from "./StickyNotes";
+import { fetchPages, createPage, updatePage } from "../services/api";
 
 function formatTimestamp(dateStr) {
   if (!dateStr) return "";
@@ -25,11 +26,47 @@ export default function NoteWriter({
   onClose,
 }) {
   const [title, setTitle] = useState(initialTitle || "");
-  const [content, setContent] = useState(initialContent || "");
   const [partitionId, setPartitionId] = useState(initialPartitionId || "");
   const [saving, setSaving] = useState(false);
   const titleRef = useRef(null);
   const editorRef = useRef(null);
+
+  const isEditing = !!initialCreatedAt;
+
+  // Page state
+  const [pages, setPages] = useState([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [pagesLoaded, setPagesLoaded] = useState(!isEditing);
+  const [pageContent, setPageContent] = useState("");
+  const [creatingPage, setCreatingPage] = useState(false);
+  const [editorDirty, setEditorDirty] = useState(false);
+
+  // Load pages for existing notes
+  useEffect(() => {
+    if (!noteId || !isEditing) return;
+    let cancelled = false;
+    async function loadPages() {
+      try {
+        const data = await fetchPages(noteId);
+        if (cancelled) return;
+        if (data.length === 0) {
+          const created = await createPage(noteId, initialContent || "", 1);
+          if (cancelled) return;
+          setPages([created]);
+          setPageContent(initialContent || "");
+        } else {
+          setPages(data);
+          setPageContent(data[0].content || "");
+        }
+      } catch (err) {
+        console.error("Failed to load pages:", err);
+      } finally {
+        if (!cancelled) setPagesLoaded(true);
+      }
+    }
+    loadPages();
+    return () => { cancelled = true; };
+  }, [noteId, isEditing]);
 
   useEffect(() => {
     if (titleRef.current) titleRef.current.focus();
@@ -43,12 +80,70 @@ export default function NoteWriter({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [onClose]);
 
+  // Save current page content before switching
+  const saveCurrentPage = useCallback(async () => {
+    if (!noteId || pages.length === 0) return;
+    const currentPage = pages[currentPageIndex];
+    if (!currentPage) return;
+    if (editorRef.current) {
+      const newContent = editorRef.current.getHTML();
+      if (newContent !== currentPage.content) {
+        try {
+          const updated = await updatePage(currentPage.id, newContent);
+          setPages((prev) =>
+            prev.map((p, i) => (i === currentPageIndex ? updated : p))
+          );
+          setEditorDirty(false);
+        } catch (err) {
+          console.error("Failed to save page:", err);
+        }
+      }
+    }
+  }, [noteId, pages, currentPageIndex]);
+
+  // Switch to a different page
+  const goToPage = useCallback(async (index) => {
+    if (index < 0 || index >= pages.length || index === currentPageIndex) return;
+    await saveCurrentPage();
+    setCurrentPageIndex(index);
+    setPageContent(pages[index].content || "");
+    setEditorDirty(false);
+  }, [pages, currentPageIndex, saveCurrentPage]);
+
+  // Add a new page
+  const addPage = useCallback(async () => {
+    if (!noteId || creatingPage) return;
+    await saveCurrentPage();
+    setCreatingPage(true);
+    try {
+      const newPage = await createPage(noteId, "", pages.length + 1);
+      setPages((prev) => [...prev, newPage]);
+      setCurrentPageIndex(pages.length);
+      setPageContent("");
+      if (editorRef.current) {
+        editorRef.current.commands.setContent("");
+        editorRef.current.commands.focus();
+      }
+    } catch (err) {
+      console.error("Failed to create page:", err);
+    } finally {
+      setCreatingPage(false);
+    }
+  }, [noteId, pages, creatingPage, saveCurrentPage]);
+
   async function handleSave() {
     const editorContent = editorRef.current?.getHTML() || "";
     const plainText = editorRef.current?.getText() || "";
     if ((plainText.trim() === "" && title.trim() === "") || saving) return;
     setSaving(true);
     try {
+      // Save current page first
+      if (noteId && pages.length > 0) {
+        const currentPage = pages[currentPageIndex];
+        if (currentPage && editorRef.current) {
+          await updatePage(currentPage.id, editorRef.current.getHTML());
+        }
+      }
       await onSave(title.trim() || null, editorContent, partitionId || null);
     } catch (err) {
       console.error("Failed to save note:", err);
@@ -64,12 +159,18 @@ export default function NoteWriter({
     }
   }
 
+  function handleContentChange(newContent) {
+    setPageContent(newContent);
+    setEditorDirty(true);
+  }
+
   const hasUnsavedChanges =
     title !== (initialTitle || "") ||
-    content !== (initialContent || "") ||
-    partitionId !== (initialPartitionId || "");
+    partitionId !== (initialPartitionId || "") ||
+    editorDirty;
 
-  const isEditing = !!initialCreatedAt;
+  const totalPages = pages.length;
+  const currentPageNumber = currentPageIndex + 1;
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-gray-900">
@@ -148,26 +249,93 @@ export default function NoteWriter({
             {/* Divider */}
             <div className="mb-6 border-b border-gray-100 dark:border-gray-700"></div>
 
-            {/* Content */}
-            <RichTextEditor
-              content={content}
-              onChange={setContent}
-              editorRef={editorRef}
-            />
+            {/* Page indicator - top */}
+            {isEditing && totalPages > 0 && (
+              <div className="mb-4 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2 dark:bg-gray-800">
+                <button
+                  onClick={() => goToPage(currentPageIndex - 1)}
+                  disabled={currentPageIndex === 0}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Prev
+                </button>
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Page {currentPageNumber} of {totalPages}
+                </span>
+                <button
+                  onClick={() => goToPage(currentPageIndex + 1)}
+                  disabled={currentPageIndex >= totalPages - 1}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  Next
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Content editor */}
+            {pagesLoaded && (
+              <RichTextEditor
+                content={pageContent}
+                onChange={handleContentChange}
+                editorRef={editorRef}
+              />
+            )}
+
+            {/* Page indicator - bottom */}
+            {isEditing && totalPages > 0 && (
+              <div className="mt-6 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2 dark:bg-gray-800">
+                <button
+                  onClick={() => goToPage(currentPageIndex - 1)}
+                  disabled={currentPageIndex === 0}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Prev
+                </button>
+                <button
+                  onClick={addPage}
+                  disabled={creatingPage}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-400 dark:hover:bg-primary-900/30"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Page
+                </button>
+                <button
+                  onClick={() => goToPage(currentPageIndex + 1)}
+                  disabled={currentPageIndex >= totalPages - 1}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700"
+                >
+                  Next
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Sticky notes - mobile/tablet bottom panel, edit mode only */}
-        {isEditing && noteId && (
+        {isEditing && noteId && pages.length > 0 && (
           <div className="h-56 flex-shrink-0 border-t border-gray-100 sm:h-64 lg:hidden dark:border-gray-700">
-            <StickyNotes noteId={noteId} />
+            <StickyNotes key={pages[currentPageIndex]?.id} pageId={pages[currentPageIndex]?.id} />
           </div>
         )}
 
         {/* Sticky notes - desktop side panel, edit mode only */}
-        {isEditing && noteId && (
+        {isEditing && noteId && pages.length > 0 && (
           <div className="hidden w-72 flex-shrink-0 border-l border-gray-100 dark:border-gray-700 lg:flex lg:flex-col">
-            <StickyNotes noteId={noteId} />
+            <StickyNotes key={pages[currentPageIndex]?.id} pageId={pages[currentPageIndex]?.id} />
           </div>
         )}
       </div>

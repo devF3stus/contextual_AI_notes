@@ -76,16 +76,58 @@ export async function deletePartition(id) {
   return response.json();
 }
 
+// ─── Note Pages ────────────────────────────────────────────────
+
+export async function fetchPages(noteId) {
+  const response = await fetch(`${API_BASE}/notes/${noteId}/pages`);
+  if (!response.ok) throw new Error("Failed to fetch pages");
+  return response.json();
+}
+
+export async function createPage(noteId, content, pageNumber) {
+  const response = await fetch(`${API_BASE}/notes/${noteId}/pages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: content || "", page_number: pageNumber }),
+  });
+  if (!response.ok) throw new Error("Failed to create page");
+  return response.json();
+}
+
+export async function fetchPage(pageId) {
+  const response = await fetch(`${API_BASE}/pages/${pageId}`);
+  if (!response.ok) throw new Error("Failed to fetch page");
+  return response.json();
+}
+
+export async function updatePage(pageId, content) {
+  const response = await fetch(`${API_BASE}/pages/${pageId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) throw new Error("Failed to update page");
+  return response.json();
+}
+
+export async function deletePage(pageId) {
+  const response = await fetch(`${API_BASE}/pages/${pageId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete page");
+  return response.json();
+}
+
 // ─── Sticky Notes ──────────────────────────────────────────────
 
-export async function fetchStickyNotes(noteId) {
-  const response = await fetch(`${API_BASE}/notes/${noteId}/sticky-notes`);
+export async function fetchStickyNotes(pageId) {
+  const response = await fetch(`${API_BASE}/pages/${pageId}/sticky-notes`);
   if (!response.ok) throw new Error("Failed to fetch sticky notes");
   return response.json();
 }
 
-export async function createStickyNote(noteId, content) {
-  const response = await fetch(`${API_BASE}/notes/${noteId}/sticky-notes`, {
+export async function createStickyNote(pageId, content) {
+  const response = await fetch(`${API_BASE}/pages/${pageId}/sticky-notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),

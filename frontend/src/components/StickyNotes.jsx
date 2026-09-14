@@ -101,7 +101,7 @@ function StickyNoteCard({ note, onEdit, onDelete }) {
   );
 }
 
-export default function StickyNotes({ noteId }) {
+export default function StickyNotes({ pageId }) {
   const [stickyNotes, setStickyNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -110,13 +110,13 @@ export default function StickyNotes({ noteId }) {
   const [showEditor, setShowEditor] = useState(false);
 
   useEffect(() => {
-    if (!noteId) return;
+    if (!pageId) return;
     let cancelled = false;
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchStickyNotes(noteId);
+        const data = await fetchStickyNotes(pageId);
         if (!cancelled) setStickyNotes(data);
       } catch {
         if (!cancelled) setError("Failed to load sticky notes.");
@@ -126,13 +126,13 @@ export default function StickyNotes({ noteId }) {
     }
     load();
     return () => { cancelled = true; };
-  }, [noteId]);
+  }, [pageId]);
 
   async function handleCreate() {
-    if (!newContent.trim() || creating) return;
+    if (!newContent.trim() || creating || !pageId) return;
     setCreating(true);
     try {
-      const created = await createStickyNote(noteId, newContent.trim());
+      const created = await createStickyNote(pageId, newContent.trim());
       setStickyNotes((prev) => [...prev, created]);
       setNewContent("");
       setShowEditor(false);
@@ -205,7 +205,7 @@ export default function StickyNotes({ noteId }) {
         {!loading && !error && stickyNotes.length === 0 && !showEditor && (
           <div className="py-6 text-center">
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              No sticky notes yet.
+              {pageId ? "No sticky notes yet." : "Select a page to view sticky notes."}
             </p>
           </div>
         )}
