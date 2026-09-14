@@ -1,23 +1,16 @@
-
 require("dotenv").config();
+const mongoose = require("mongoose");
 
-const { Pool } = require("pg");
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT 
-});
-
-pool.query("SELECT NOW()", (error, result) => {
-  if (error) {
-    console.error("Database connection failed:", error);
-  } else {
-    console.log("Database connected successfully!");
-    console.log("Database time:", result.rows[0].now);
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log("MongoDB connected successfully!");
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+    console.error("Server will start but database operations will fail until connection is restored.");
   }
-});
+};
 
-module.exports = pool;
+module.exports = connectDB;

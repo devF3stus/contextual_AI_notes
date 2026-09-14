@@ -1,6 +1,11 @@
-const pool = require("./db");
+const connectDB = require("./db");
+connectDB();
 const express = require("express");
 const cors = require("cors");
+const Note = require("./models/Note");
+const Partition = require("./models/Partition");
+const Page = require("./models/Page");
+const StickyNote = require("./models/StickyNote");
 
 const app = express();
 app.use(cors());
@@ -8,18 +13,42 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 
+// ─── HELPERS ──────────────────────────────────────────────────
+
+function normalizeTimestamps(doc) {
+  if (!doc.updated_at) {
+    doc.updated_at = doc.created_at;
+  }
+  if (doc.created_at instanceof Date) {
+    doc.created_at = doc.created_at.toISOString();
+  }
+  if (doc.updated_at instanceof Date) {
+    doc.updated_at = doc.updated_at.toISOString();
+  }
+  return doc;
+}
+
+async function getPartitionName(partitionId) {
+  if (!partitionId) return null;
+  const partition = await Partition.findById(partitionId).select("name");
+  return partition ? partition.name : null;
+}
+
 // ─── PARTITIONS ────────────────────────────────────────────────
 
 app.get("/api/partitions", async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT p.*, COUNT(n.id)::int AS note_count
-       FROM public.partitions p
-       LEFT JOIN public.notes n ON n.partition_id = p.id
-       GROUP BY p.id
-       ORDER BY p.name ASC`
+    const partitions = await Partition.find().sort({ name: 1 });
+    const partitionsWithCounts = await Promise.all(
+      partitions.map(async (partition) => {
+        const noteCount = await Note.countDocuments({ partition_id: partition._id });
+        return {
+          ...partition.toObject(),
+          note_count: noteCount,
+        };
+      })
     );
-    res.json(result.rows);
+    res.json(partitionsWithCounts);
   } catch (error) {
     console.error("Error fetching partitions:", error);
     res.status(500).json({ error: "Failed to fetch partitions" });
@@ -32,13 +61,11 @@ app.post("/api/partitions", async (req, res) => {
     if (!name || name.trim() === "") {
       return res.status(400).json({ error: "Partition name is required" });
     }
-    const result = await pool.query(
-      "INSERT INTO public.partitions (name) VALUES ($1) RETURNING *",
-      [name.trim()]
-    );
-    const partition = result.rows[0];
-    partition.note_count = 0;
-    res.json(partition);
+    const partition = await Partition.create({ name: name.trim() });
+    res.json({
+      ...partition.toObject(),
+      note_count: 0,
+    });
   } catch (error) {
     console.error("Error creating partition:", error);
     res.status(500).json({ error: "Failed to create partition" });
@@ -48,18 +75,19 @@ app.post("/api/partitions", async (req, res) => {
 app.put("/api/partitions/:id", async (req, res) => {
   try {
     const { name } = req.body;
-    const id = req.params.id;
+    const { id } = req.params;
     if (!name || name.trim() === "") {
       return res.status(400).json({ error: "Partition name is required" });
     }
-    const result = await pool.query(
-      "UPDATE public.partitions SET name = $1 WHERE id = $2 RETURNING *",
-      [name.trim(), id]
+    const partition = await Partition.findByIdAndUpdate(
+      id,
+      { name: name.trim() },
+      { new: true }
     );
-    if (result.rows.length === 0) {
+    if (!partition) {
       return res.status(404).json({ error: "Partition not found" });
     }
-    res.json(result.rows[0]);
+    res.json(partition.toObject());
   } catch (error) {
     console.error("Error updating partition:", error);
     res.status(500).json({ error: "Failed to update partition" });
@@ -68,15 +96,12 @@ app.put("/api/partitions/:id", async (req, res) => {
 
 app.delete("/api/partitions/:id", async (req, res) => {
   try {
-    const id = req.params.id;
-    const result = await pool.query(
-      "DELETE FROM public.partitions WHERE id = $1 RETURNING *",
-      [id]
-    );
-    if (result.rows.length === 0) {
+    const { id } = req.params;
+    const partition = await Partition.findByIdAndDelete(id);
+    if (!partition) {
       return res.status(404).json({ error: "Partition not found" });
     }
-    res.json(result.rows[0]);
+    res.json(partition.toObject());
   } catch (error) {
     console.error("Error deleting partition:", error);
     res.status(500).json({ error: "Failed to delete partition" });
@@ -88,19 +113,31 @@ app.delete("/api/partitions/:id", async (req, res) => {
 app.get("/api/notes", async (req, res) => {
   try {
     const { partition_id } = req.query;
-    let query = `
-      SELECT n.*, p.name AS partition_name
-      FROM public.notes n
-      LEFT JOIN public.partitions p ON n.partition_id = p.id
-    `;
-    const params = [];
+    const filter = {};
     if (partition_id) {
-      params.push(partition_id);
-      query += ` WHERE n.partition_id = $1`;
+      filter.partition_id = partition_id;
     }
-    query += " ORDER BY n.id DESC";
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    const notes = await Note.find(filter).sort({ _id: -1 });
+
+    const partitionIds = [...new Set(notes.map((n) => n.partition_id).filter(Boolean))];
+    const partitions =
+      partitionIds.length > 0
+        ? await Partition.find({ _id: { $in: partitionIds } }).select("name")
+        : [];
+    const partitionMap = {};
+    partitions.forEach((p) => {
+      partitionMap[p._id.toString()] = p.name;
+    });
+
+    const enrichedNotes = notes.map((note) => {
+      const noteObj = normalizeTimestamps(note.toObject());
+      noteObj.partition_name = noteObj.partition_id
+        ? partitionMap[noteObj.partition_id.toString()] || null
+        : null;
+      return noteObj;
+    });
+
+    res.json(enrichedNotes);
   } catch (error) {
     console.error("Error fetching notes:", error);
     res.status(500).json({ error: "Failed to fetch notes" });
@@ -110,13 +147,21 @@ app.get("/api/notes", async (req, res) => {
 app.post("/api/notes", async (req, res) => {
   try {
     const { title, content, partition_id } = req.body;
-    const result = await pool.query(
-      `INSERT INTO public.notes (title, content, partition_id)
-       VALUES ($1, $2, $3)
-       RETURNING *, (SELECT name FROM public.partitions WHERE id = $3) AS partition_name`,
-      [title || null, content, partition_id || null]
-    );
-    res.json(result.rows[0]);
+    const now = new Date();
+    const note = await Note.create({
+      title: title !== undefined ? title : null,
+      content: content || "",
+      partition_id: partition_id || null,
+      created_at: now,
+      updated_at: now,
+    });
+
+    const noteObj = normalizeTimestamps(note.toObject());
+    noteObj.partition_name = noteObj.partition_id
+      ? await getPartitionName(noteObj.partition_id)
+      : null;
+
+    res.json(noteObj);
   } catch (error) {
     console.error("Error creating note:", error);
     res.status(500).json({ error: "Failed to create note" });
@@ -126,27 +171,28 @@ app.post("/api/notes", async (req, res) => {
 app.put("/api/notes/:id", async (req, res) => {
   try {
     const { title, content, partition_id } = req.body;
-    const id = req.params.id;
+    const { id } = req.params;
 
+    const update = {
+      title: title !== undefined ? title : null,
+      content,
+      updated_at: new Date(),
+    };
     if (partition_id !== undefined) {
-      const result = await pool.query(
-        `UPDATE public.notes
-         SET title = $1, content = $2, partition_id = $3, updated_at = NOW()
-         WHERE id = $4
-         RETURNING *, (SELECT name FROM public.partitions WHERE id = $3) AS partition_name`,
-        [title !== undefined ? title : null, content, partition_id, id]
-      );
-      return res.json(result.rows[0]);
+      update.partition_id = partition_id || null;
     }
 
-    const result = await pool.query(
-       `UPDATE public.notes
-        SET title = $1, content = $2, updated_at = NOW()
-        WHERE id = $3
-       RETURNING *, (SELECT name FROM public.partitions WHERE id = partition_id) AS partition_name`,
-      [title !== undefined ? title : null, content, id]
-    );
-    res.json(result.rows[0]);
+    const note = await Note.findByIdAndUpdate(id, update, { new: true });
+    if (!note) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    const noteObj = normalizeTimestamps(note.toObject());
+    noteObj.partition_name = noteObj.partition_id
+      ? await getPartitionName(noteObj.partition_id)
+      : null;
+
+    res.json(noteObj);
   } catch (error) {
     console.error("Error updating note:", error);
     res.status(500).json({ error: "Failed to update note" });
@@ -155,12 +201,20 @@ app.put("/api/notes/:id", async (req, res) => {
 
 app.delete("/api/notes/:id", async (req, res) => {
   try {
-    const id = req.params.id;
-    const result = await pool.query(
-      "DELETE FROM public.notes WHERE id = $1 RETURNING *",
-      [id]
-    );
-    res.json(result.rows[0]);
+    const { id } = req.params;
+    const note = await Note.findByIdAndDelete(id);
+    if (!note) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    const pages = await Page.find({ note_id: id });
+    const pageIds = pages.map((p) => p._id);
+    if (pageIds.length > 0) {
+      await StickyNote.deleteMany({ page_id: { $in: pageIds } });
+    }
+    await Page.deleteMany({ note_id: id });
+
+    res.json(normalizeTimestamps(note.toObject()));
   } catch (error) {
     console.error("Error deleting note:", error);
     res.status(500).json({ error: "Failed to delete note" });
@@ -172,13 +226,8 @@ app.delete("/api/notes/:id", async (req, res) => {
 app.get("/api/notes/:noteId/pages", async (req, res) => {
   try {
     const { noteId } = req.params;
-    const result = await pool.query(
-      `SELECT * FROM public.note_pages
-       WHERE note_id = $1
-       ORDER BY page_number ASC`,
-      [noteId]
-    );
-    res.json(result.rows);
+    const pages = await Page.find({ note_id: noteId }).sort({ page_number: 1 });
+    res.json(pages.map((p) => normalizeTimestamps(p.toObject())));
   } catch (error) {
     console.error("Error fetching pages:", error);
     res.status(500).json({ error: "Failed to fetch pages" });
@@ -189,13 +238,15 @@ app.post("/api/notes/:noteId/pages", async (req, res) => {
   try {
     const { noteId } = req.params;
     const { content, page_number } = req.body;
-    const result = await pool.query(
-      `INSERT INTO public.note_pages (note_id, page_number, content)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [noteId, page_number || 1, content || ""]
-    );
-    res.json(result.rows[0]);
+    const now = new Date();
+    const page = await Page.create({
+      note_id: noteId,
+      page_number: page_number || 1,
+      content: content || "",
+      created_at: now,
+      updated_at: now,
+    });
+    res.json(normalizeTimestamps(page.toObject()));
   } catch (error) {
     console.error("Error creating page:", error);
     res.status(500).json({ error: "Failed to create page" });
@@ -205,14 +256,11 @@ app.post("/api/notes/:noteId/pages", async (req, res) => {
 app.get("/api/pages/:pageId", async (req, res) => {
   try {
     const { pageId } = req.params;
-    const result = await pool.query(
-      "SELECT * FROM public.note_pages WHERE id = $1",
-      [pageId]
-    );
-    if (result.rows.length === 0) {
+    const page = await Page.findById(pageId);
+    if (!page) {
       return res.status(404).json({ error: "Page not found" });
     }
-    res.json(result.rows[0]);
+    res.json(normalizeTimestamps(page.toObject()));
   } catch (error) {
     console.error("Error fetching page:", error);
     res.status(500).json({ error: "Failed to fetch page" });
@@ -223,17 +271,15 @@ app.put("/api/pages/:pageId", async (req, res) => {
   try {
     const { pageId } = req.params;
     const { content } = req.body;
-    const result = await pool.query(
-      `UPDATE public.note_pages
-       SET content = $1, updated_at = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [content, pageId]
+    const page = await Page.findByIdAndUpdate(
+      pageId,
+      { content, updated_at: new Date() },
+      { new: true }
     );
-    if (result.rows.length === 0) {
+    if (!page) {
       return res.status(404).json({ error: "Page not found" });
     }
-    res.json(result.rows[0]);
+    res.json(normalizeTimestamps(page.toObject()));
   } catch (error) {
     console.error("Error updating page:", error);
     res.status(500).json({ error: "Failed to update page" });
@@ -243,14 +289,14 @@ app.put("/api/pages/:pageId", async (req, res) => {
 app.delete("/api/pages/:pageId", async (req, res) => {
   try {
     const { pageId } = req.params;
-    const result = await pool.query(
-      "DELETE FROM public.note_pages WHERE id = $1 RETURNING *",
-      [pageId]
-    );
-    if (result.rows.length === 0) {
+    const page = await Page.findByIdAndDelete(pageId);
+    if (!page) {
       return res.status(404).json({ error: "Page not found" });
     }
-    res.json(result.rows[0]);
+
+    await StickyNote.deleteMany({ page_id: pageId });
+
+    res.json(normalizeTimestamps(page.toObject()));
   } catch (error) {
     console.error("Error deleting page:", error);
     res.status(500).json({ error: "Failed to delete page" });
@@ -262,13 +308,10 @@ app.delete("/api/pages/:pageId", async (req, res) => {
 app.get("/api/pages/:pageId/sticky-notes", async (req, res) => {
   try {
     const { pageId } = req.params;
-    const result = await pool.query(
-      `SELECT * FROM public.sticky_notes
-       WHERE page_id = $1
-       ORDER BY created_at ASC`,
-      [pageId]
-    );
-    res.json(result.rows);
+    const stickyNotes = await StickyNote.find({ page_id: pageId }).sort({
+      created_at: 1,
+    });
+    res.json(stickyNotes.map((s) => normalizeTimestamps(s.toObject())));
   } catch (error) {
     console.error("Error fetching sticky notes:", error);
     res.status(500).json({ error: "Failed to fetch sticky notes" });
@@ -282,13 +325,14 @@ app.post("/api/pages/:pageId/sticky-notes", async (req, res) => {
     if (!content || content.trim() === "") {
       return res.status(400).json({ error: "Sticky note content is required" });
     }
-    const result = await pool.query(
-      `INSERT INTO public.sticky_notes (page_id, content)
-       VALUES ($1, $2)
-       RETURNING *`,
-      [pageId, content.trim()]
-    );
-    res.json(result.rows[0]);
+    const now = new Date();
+    const stickyNote = await StickyNote.create({
+      page_id: pageId,
+      content: content.trim(),
+      created_at: now,
+      updated_at: now,
+    });
+    res.json(normalizeTimestamps(stickyNote.toObject()));
   } catch (error) {
     console.error("Error creating sticky note:", error);
     res.status(500).json({ error: "Failed to create sticky note" });
@@ -302,17 +346,15 @@ app.put("/api/sticky-notes/:id", async (req, res) => {
     if (!content || content.trim() === "") {
       return res.status(400).json({ error: "Sticky note content is required" });
     }
-    const result = await pool.query(
-      `UPDATE public.sticky_notes
-       SET content = $1, updated_at = NOW()
-       WHERE id = $2
-       RETURNING *`,
-      [content.trim(), id]
+    const stickyNote = await StickyNote.findByIdAndUpdate(
+      id,
+      { content: content.trim(), updated_at: new Date() },
+      { new: true }
     );
-    if (result.rows.length === 0) {
+    if (!stickyNote) {
       return res.status(404).json({ error: "Sticky note not found" });
     }
-    res.json(result.rows[0]);
+    res.json(normalizeTimestamps(stickyNote.toObject()));
   } catch (error) {
     console.error("Error updating sticky note:", error);
     res.status(500).json({ error: "Failed to update sticky note" });
@@ -322,14 +364,11 @@ app.put("/api/sticky-notes/:id", async (req, res) => {
 app.delete("/api/sticky-notes/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      "DELETE FROM public.sticky_notes WHERE id = $1 RETURNING *",
-      [id]
-    );
-    if (result.rows.length === 0) {
+    const stickyNote = await StickyNote.findByIdAndDelete(id);
+    if (!stickyNote) {
       return res.status(404).json({ error: "Sticky note not found" });
     }
-    res.json(result.rows[0]);
+    res.json(normalizeTimestamps(stickyNote.toObject()));
   } catch (error) {
     console.error("Error deleting sticky note:", error);
     res.status(500).json({ error: "Failed to delete sticky note" });
