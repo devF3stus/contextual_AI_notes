@@ -119,7 +119,7 @@ export default function NoteWriter({
     try {
       const newPage = await createPage(noteId, "", pages.length + 1);
       setPages((prev) => [...prev, newPage]);
-      setCurrentPageIndex(pages.length);
+      setCurrentPageIndex((prev) => prev + 1);
       setPageContent("");
       if (editorRef.current) {
         editorRef.current.commands.setContent("");
