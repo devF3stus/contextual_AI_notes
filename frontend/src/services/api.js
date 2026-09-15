@@ -1,7 +1,6 @@
-const API_BASE = "https://contextual-ai-notes.onrender.com/";
+const API_BASE = "https://contextual-ai-notes.onrender.com/api";
 
 // ─── Notes ─────────────────────────────────────────────────────
-
 export async function fetchNotes(partitionId) {
   let url = `${API_BASE}/notes`;
   if (partitionId) url += `?partition_id=${partitionId}`;
