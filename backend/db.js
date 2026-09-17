@@ -28,3 +28,4 @@ const connectDB = async () => {
       "Server will start but database operations will fail until connection is restored."
     );
   }
+};
