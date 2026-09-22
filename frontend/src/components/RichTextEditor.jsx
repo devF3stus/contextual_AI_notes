@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import { useEffect, useCallback, useRef } from "react";
+import { ClipboardPasteExtension } from "../utils/clipboardPaste";
 
 const PAGE_MAX_HEIGHT = 800;
 
@@ -83,6 +84,7 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
         openOnClick: false,
         HTMLAttributes: { class: "text-blue-600 underline cursor-pointer" },
       }),
+      ClipboardPasteExtension,
     ],
     content: content || "",
     editorProps: {
@@ -124,8 +126,10 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
   }, [editor, editorRef]);
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content || "");
+    if (!editor) return;
+    const next = content || "";
+    if (next !== editor.getHTML()) {
+      editor.commands.setContent(next, { emitUpdate: false });
     }
   }, [content, editor]);
 
