@@ -5,7 +5,7 @@ import Link from "@tiptap/extension-link";
 import { useEffect, useCallback, useRef } from "react";
 import { ClipboardPasteExtension } from "../utils/clipboardPaste";
 
-const PAGE_MAX_HEIGHT = 800;
+const PAGE_IDEAL_HEIGHT = 800;
 
 function ToolbarButton({ onClick, isActive, children, title }) {
   return (
@@ -36,12 +36,13 @@ function findSplitPoint(editorView, maxHeight) {
   if (!children || children.length === 0) return null;
 
   const editorRect = editorEl.getBoundingClientRect();
+  const scrollTop = editorEl.scrollTop || 0;
 
   let lastFittingIndex = -1;
 
   for (let i = 0; i < children.length; i++) {
     const childRect = children[i].getBoundingClientRect();
-    const childBottom = childRect.bottom - editorRect.top;
+    const childBottom = childRect.bottom - editorRect.top + scrollTop;
 
     if (childBottom <= maxHeight) {
       lastFittingIndex = i;
@@ -66,13 +67,81 @@ function findSplitPoint(editorView, maxHeight) {
 
   if (!moveHtml.trim()) return null;
 
-  return { keepHtml, moveHtml };
+  return { keepHtml, moveHtml, firstMovedIndex: lastFittingIndex + 1 };
 }
 
-export default function RichTextEditor({ content, onChange, editorRef, onOverflow }) {
+export default function RichTextEditor({ content, onChange, editorRef, onOverflow, cursorRequest }) {
   const containerRef = useRef(null);
   const checkTimeoutRef = useRef(null);
   const isSplittingRef = useRef(false);
+  const overflowCallbackRef = useRef(null);
+  const changeCallbackRef = useRef(null);
+  const editorInstanceRef = useRef(null);
+  const appliedCursorIdRef = useRef(0);
+  const scheduleRef = useRef(null);
+
+  useEffect(() => {
+    overflowCallbackRef.current = onOverflow;
+    changeCallbackRef.current = onChange;
+  });
+
+  const scheduleOverflowCheck = useCallback(() => {
+    if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current);
+    checkTimeoutRef.current = setTimeout(() => {
+      requestAnimationFrame(() => {
+        if (isSplittingRef.current) return;
+        const container = containerRef.current;
+        const editorInstance = editorInstanceRef.current;
+        if (!container || !editorInstance || editorInstance.isDestroyed) return;
+
+        const editorContent = container.querySelector(".tiptap");
+        if (!editorContent) return;
+
+        if (editorContent.scrollHeight > PAGE_IDEAL_HEIGHT) {
+          const split = findSplitPoint(editorInstance.view, PAGE_IDEAL_HEIGHT);
+          if (!split) return;
+          if (split.keepHtml === editorInstance.getHTML()) return;
+          const overflow = overflowCallbackRef.current;
+          if (!overflow) return;
+
+          const doc = editorInstance.state.doc;
+          let splitPos = 0;
+          for (let i = 0; i < split.firstMovedIndex && i < doc.childCount; i++) {
+            splitPos += doc.child(i).nodeSize;
+          }
+          const selFrom = editorInstance.state.selection.from;
+          const cursorInMoved = selFrom > splitPos;
+          const cursorOffset = cursorInMoved
+            ? Math.max(0, selFrom - splitPos)
+            : Math.max(0, selFrom);
+
+          isSplittingRef.current = true;
+          Promise.resolve()
+            .then(() =>
+              overflow({
+                moveHtml: split.moveHtml,
+                keepHtml: split.keepHtml,
+                cursorInMoved,
+                cursorOffset,
+              })
+            )
+            .catch((err) => {
+              console.error("Page overflow handling failed:", err);
+            })
+            .finally(() => {
+              isSplittingRef.current = false;
+              if (!editorInstanceRef.current?.isDestroyed) {
+                scheduleRef.current?.();
+              }
+            });
+        }
+      });
+    }, 120);
+  }, []);
+
+  useEffect(() => {
+    scheduleRef.current = scheduleOverflowCheck;
+  }, [scheduleOverflowCheck]);
 
   const editor = useEditor({
     extensions: [
@@ -90,39 +159,22 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm sm:prose max-w-none focus:outline-none min-h-[300px] px-1 py-2 text-gray-900 leading-relaxed dark:text-gray-100",
+          "page-sheet prose prose-sm sm:prose max-w-none focus:outline-none px-1 py-2 text-gray-900 leading-relaxed dark:text-gray-100",
+        "data-page-editor": "true",
       },
     },
     onUpdate: ({ editor: updatedEditor }) => {
-      onChange?.(updatedEditor.getHTML());
-
-      if (onOverflow && !isSplittingRef.current) {
-        if (checkTimeoutRef.current) clearTimeout(checkTimeoutRef.current);
-        checkTimeoutRef.current = setTimeout(() => {
-          requestAnimationFrame(() => {
-            if (isSplittingRef.current) return;
-            const container = containerRef.current;
-            if (!container) return;
-
-            const editorContent = container.querySelector(".tiptap");
-            if (!editorContent) return;
-
-            const scrollHeight = editorContent.scrollHeight;
-            if (scrollHeight > PAGE_MAX_HEIGHT) {
-              const split = findSplitPoint(updatedEditor.view, PAGE_MAX_HEIGHT);
-              if (split) {
-                isSplittingRef.current = true;
-                onOverflow(split.moveHtml, split.keepHtml);
-              }
-            }
-          });
-        }, 100);
-      }
+      changeCallbackRef.current?.(updatedEditor.getHTML());
+      scheduleOverflowCheck();
+    },
+    onCreate: () => {
+      scheduleOverflowCheck();
     },
   });
 
   useEffect(() => {
     if (editorRef) editorRef.current = editor;
+    editorInstanceRef.current = editor;
   }, [editor, editorRef]);
 
   useEffect(() => {
@@ -130,8 +182,21 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
     const next = content || "";
     if (next !== editor.getHTML()) {
       editor.commands.setContent(next, { emitUpdate: false });
+      scheduleOverflowCheck();
+      if (cursorRequest && cursorRequest.id !== appliedCursorIdRef.current) {
+        appliedCursorIdRef.current = cursorRequest.id;
+        try {
+          const maxPos = editor.state.doc.content.size;
+          editor.commands.setTextSelection(
+            Math.max(0, Math.min(cursorRequest.pos || 0, maxPos))
+          );
+        } catch {
+          // ignore out-of-range cursor requests
+        }
+        editor.commands.focus();
+      }
     }
-  }, [content, editor]);
+  }, [content, editor, cursorRequest, scheduleOverflowCheck]);
 
   useEffect(() => {
     return () => {

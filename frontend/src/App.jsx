@@ -127,6 +127,26 @@ export default function App() {
     showToast("Note updated", "success");
   }, [editingNote]);
 
+  const handleUpdateNoteById = useCallback(
+    async (id, title, content, partitionId, opts) => {
+      const updatedNote = await updateNote(id, title, content, partitionId);
+      setNotes((prev) => prev.map((n) => (n.id === id ? updatedNote : n)));
+      if (!opts?.silent) showToast("Note updated", "success");
+      return updatedNote;
+    },
+    []
+  );
+
+  const handleCreatedFromAutosave = useCallback(async (note) => {
+    setNotes((prev) => {
+      if (prev.some((n) => n.id === note.id)) {
+        return prev.map((n) => (n.id === note.id ? note : n));
+      }
+      return [note, ...prev];
+    });
+    reloadPartitions();
+  }, []);
+
   const handleDeleteNote = useCallback(async (id) => {
     try {
       await deleteNote(id);
@@ -264,6 +284,8 @@ export default function App() {
               ? handleCreateFromWriter
               : handleUpdateFromWriter
           }
+          onUpdateNote={handleUpdateNoteById}
+          onCreated={handleCreatedFromAutosave}
           onClose={() => setWritingNote(null)}
         />
         {toast && (
