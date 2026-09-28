@@ -245,9 +245,20 @@ app.post("/api/notes/:noteId/pages", async (req, res) => {
   try {
     const { noteId } = req.params;
     const { content, page_number } = req.body;
+    let num = Number(page_number) || 1;
+    // Collision guard: if a page already holds this number (stale client,
+    // retry, or race), shift it and everything after it up by one so both
+    // pages survive with unique numbers. Plain appends are unaffected.
+    const clash = await Page.findOne({ note_id: noteId, page_number: num });
+    if (clash) {
+      await Page.updateMany(
+        { note_id: noteId, page_number: { $gte: num } },
+        { $inc: { page_number: 1 } }
+      );
+    }
     const page = await Page.create({
       note_id: noteId,
-      page_number: page_number || 1,
+      page_number: num,
       content: content || ""
     });
     res.json(page.toObject({ virtuals: true }));
