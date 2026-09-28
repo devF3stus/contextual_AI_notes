@@ -87,6 +87,11 @@ export default function NoteWriter({
   // The note record id, whether it came in as a prop (edit mode) or was
   // created by autosave (new mode). Null until a new note is persisted.
   const activeNoteId = noteId || savedNoteId;
+  const activeNoteIdRef = useRef(null);
+
+  useEffect(() => {
+    activeNoteIdRef.current = activeNoteId;
+  }, [activeNoteId]);
 
   // Autosave bookkeeping. dirtyRef marks unsaved changes; dirtyGenRef guards
   // against clearing flags for keystrokes typed mid-save.
@@ -184,11 +189,11 @@ export default function NoteWriter({
       const p = working[i];
       const html = i === idx ? liveHtml : p.content || "";
       if (isPersistedPage(p)) {
-        if (html !== p.content) {
+        if (i === idx && html !== p.content) {
           working[i] = await updatePage(p.id, html);
         }
-      } else if (activeNoteId) {
-        working[i] = await createPage(activeNoteId, html, p.page_number || i + 1);
+      } else if (activeNoteIdRef.current) {
+        working[i] = await createPage(activeNoteIdRef.current, html, p.page_number || i + 1);
       }
     }
     pagesRef.current = working;
@@ -214,7 +219,7 @@ export default function NoteWriter({
     const liveText = editor?.getText() ?? "";
     const gen = dirtyGenRef.current;
 
-    if (!activeNoteId) {
+    if (!activeNoteIdRef.current) {
       // New note: only create once there is real body content.
       if (liveText.trim() === "") return;
       const acquired = await acquirePageLock();
@@ -241,6 +246,7 @@ export default function NoteWriter({
         pagesRef.current = createdPages;
         setPages(createdPages);
         setSavedNoteId(createdNote.id);
+        activeNoteIdRef.current = createdNote.id;
         try {
           await onCreated?.(createdNote);
         } catch (err) {
@@ -273,7 +279,7 @@ export default function NoteWriter({
       const working = await persistAllPages(liveHtml);
       const joined = working.map((p) => p.content || "").join("");
       await onUpdateNote?.(
-        activeNoteId,
+        activeNoteIdRef.current,
         title.trim() || null,
         joined,
         partitionId || null,
@@ -365,7 +371,10 @@ export default function NoteWriter({
     if (!currentPage) return list;
     if (liveHtml === currentPage.content) return list;
     let next;
-    if (isPersistedPage(currentPage) && activeNoteId) {
+    // NOTE: activeNoteId is read from a ref so this stays correct even when
+    // called from a stale callback (e.g. navigation after autosave creates
+    // the note). Writing state without persisting would lose data on refresh.
+    if (isPersistedPage(currentPage) && activeNoteIdRef.current) {
       try {
         const updated = await updatePage(currentPage.id, liveHtml);
         next = list.map((p) => (p.id === currentPage.id ? updated : p));
@@ -410,7 +419,7 @@ export default function NoteWriter({
       if (!target) return;
       setIndex(index);
       setPageContent(target.content || "");
-      if (activeNoteId) setEditorDirty(false);
+      if (activeNoteIdRef.current) setEditorDirty(false);
       setCursorRequest(null);
     } finally {
       if (editor) {
@@ -441,8 +450,8 @@ export default function NoteWriter({
         }
       }
       const fresh = await flushLiveContent();
-      if (activeNoteId) {
-        const newPage = await createPage(activeNoteId, "", nextPageNumber(fresh));
+      if (activeNoteIdRef.current) {
+        const newPage = await createPage(activeNoteIdRef.current, "", nextPageNumber(fresh));
         const next = [...fresh, newPage];
         pagesRef.current = next;
         setPages(next);
@@ -504,9 +513,9 @@ export default function NoteWriter({
       const idx = pageIndexRef.current;
       const currentPage = list[idx];
       if (!currentPage) {
-        if (activeNoteId) {
+        if (activeNoteIdRef.current) {
           try {
-            const created = await createPage(noteId, keepHtml, nextPageNumber(list));
+            const created = await createPage(activeNoteIdRef.current, keepHtml, nextPageNumber(list));
             const next = [...list, created];
             pagesRef.current = next;
             setPages(next);
@@ -518,7 +527,7 @@ export default function NoteWriter({
       }
 
       let working = list;
-      if (isPersistedPage(currentPage) && activeNoteId) {
+      if (isPersistedPage(currentPage) && activeNoteIdRef.current) {
         const updated = await updatePage(currentPage.id, keepHtml);
         working = working.map((p) => (p.id === currentPage.id ? updated : p));
       } else {
@@ -532,7 +541,7 @@ export default function NoteWriter({
       if (nextIdx < working.length) {
         const target = working[nextIdx];
         combined = `${moveHtml}${target.content || ""}`;
-        if (isPersistedPage(target) && activeNoteId) {
+        if (isPersistedPage(target) && activeNoteIdRef.current) {
           const saved = await updatePage(target.id, combined);
           working = working.map((p) => (p.id === target.id ? saved : p));
         } else {
@@ -540,9 +549,9 @@ export default function NoteWriter({
             i === nextIdx ? { ...p, content: combined } : p
           );
         }
-      } else if (activeNoteId) {
+      } else if (activeNoteIdRef.current) {
         combined = moveHtml;
-        const created = await createPage(activeNoteId, combined, nextPageNumber(working));
+        const created = await createPage(activeNoteIdRef.current, combined, nextPageNumber(working));
         working = [...working, created];
       } else {
         combined = moveHtml;
@@ -552,7 +561,7 @@ export default function NoteWriter({
 
       pagesRef.current = working;
       setPages(working);
-      if (activeNoteId) setEditorDirty(false);
+      if (activeNoteIdRef.current) setEditorDirty(false);
 
       if (cursorInMoved) {
         setIndex(nextIdx);
