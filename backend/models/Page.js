@@ -24,4 +24,6 @@ const PageSchema = new mongoose.Schema({
   },
 });
 
+PageSchema.index({ note_id: 1, page_number: 1 });
+
 module.exports = mongoose.model("Page", PageSchema);

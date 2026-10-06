@@ -285,10 +285,13 @@ app.get("/api/pages/:pageId", async (req, res) => {
 app.put("/api/pages/:pageId", async (req, res) => {
   try {
     const { pageId } = req.params;
-    const { content } = req.body;
+    const { content, page_number } = req.body;
+    const update = { updated_at: new Date() };
+    if (content !== undefined) update.content = content;
+    if (page_number !== undefined) update.page_number = Number(page_number) || 1;
     const page = await Page.findByIdAndUpdate(
       pageId,
-      { content, updated_at: new Date() },
+      update,
       { new: true }
     );
     if (!page) {
