@@ -58,7 +58,6 @@ export default function NoteWriter({
   });
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [pagesLoaded, setPagesLoaded] = useState(!isEditing);
-  const [pageContent, setPageContent] = useState("");
   const [pageBusy, setPageBusy] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const [cursorRequest, setCursorRequest] = useState(null);
@@ -73,7 +72,7 @@ export default function NoteWriter({
   const pageLockRef = useRef(false);
   const cursorIdRef = useRef(0);
   const localPageIdRef = useRef(0);
-  const pagesRef = useRef([]);
+  const pagesRef = useRef(pages);
   const pageIndexRef = useRef(0);
 
   useEffect(() => {
@@ -100,19 +99,19 @@ export default function NoteWriter({
   const autosaveTimerRef = useRef(null);
   const doAutosaveRef = useRef(null);
 
-  function scheduleAutosave() {
+  const scheduleAutosave = useCallback(() => {
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
       autosaveTimerRef.current = null;
       doAutosaveRef.current?.();
     }, AUTOSAVE_DELAY);
-  }
+  }, []);
 
-  function markDirty() {
+  const markDirty = useCallback(() => {
     dirtyRef.current = true;
     dirtyGenRef.current += 1;
     scheduleAutosave();
-  }
+  }, [scheduleAutosave]);
 
   function scheduleAutosaveRetry() {
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
@@ -173,32 +172,74 @@ export default function NoteWriter({
     setCursorRequest({ id: cursorIdRef.current, pos: Math.max(0, pos || 0) });
   }
 
-  function joinPages(list, idx, liveHtml) {
-    return list
-      .map((p, i) => (i === idx ? liveHtml : p.content || ""))
-      .join("");
+  function getLivePages() {
+    const list = pagesRef.current;
+    const idx = pageIndexRef.current;
+    const liveHtml = editorRef.current?.getHTML();
+    if (liveHtml === undefined || !list[idx]) return list;
+    if (list[idx].content === liveHtml) return list;
+    const next = [...list];
+    next[idx] = { ...next[idx], content: liveHtml };
+    pagesRef.current = next;
+    return next;
   }
 
   // Ensure every page slot is persisted (update changed pages, create local
-  // ones). Assumes the page lock is held. Returns the up-to-date list.
-  async function persistAllPages(liveHtml) {
-    const list = pagesRef.current;
-    const idx = pageIndexRef.current;
+  // ones). Assumes the page lock is held. Returns { working, noteId, joined }.
+  async function persistAllPages() {
+    const list = getLivePages();
     let working = [...list];
+    const joined = working.map((p) => p.content || "").join("");
+
+    let currentNoteId = activeNoteIdRef.current;
+    if (!currentNoteId) {
+      const createdNote = await createNote(
+        title.trim() || null,
+        joined,
+        partitionId || null
+      );
+      currentNoteId = createdNote.id;
+      activeNoteIdRef.current = createdNote.id;
+      setSavedNoteId(createdNote.id);
+      try {
+        await onCreated?.(createdNote);
+      } catch (err) {
+        console.error("Failed to register created note:", err);
+      }
+    } else {
+      await onUpdateNote?.(
+        currentNoteId,
+        title.trim() || null,
+        joined,
+        partitionId || null,
+        { silent: true }
+      );
+    }
+
     for (let i = 0; i < working.length; i++) {
       const p = working[i];
-      const html = i === idx ? liveHtml : p.content || "";
+      const pageNum = i + 1;
+      const html = p.content || "";
       if (isPersistedPage(p)) {
-        if (i === idx && html !== p.content) {
-          working[i] = await updatePage(p.id, html);
+        try {
+          const updated = await updatePage(p.id, html, pageNum);
+          working[i] = { ...p, ...updated, page_number: pageNum, content: html };
+        } catch (err) {
+          console.error(`Failed to update page ${p.id}:`, err);
         }
-      } else if (activeNoteIdRef.current) {
-        working[i] = await createPage(activeNoteIdRef.current, html, p.page_number || i + 1);
+      } else {
+        try {
+          const created = await createPage(currentNoteId, html, pageNum);
+          working[i] = created;
+        } catch (err) {
+          console.error(`Failed to create page ${pageNum}:`, err);
+        }
       }
     }
+
     pagesRef.current = working;
     setPages(working);
-    return working;
+    return { working, noteId: currentNoteId, joined };
   }
 
   async function doAutosave() {
@@ -214,77 +255,23 @@ export default function NoteWriter({
       scheduleAutosave();
       return;
     }
-    const editor = editorRef.current;
-    const liveHtml = editor?.getHTML() ?? pageContent;
-    const liveText = editor?.getText() ?? "";
-    const gen = dirtyGenRef.current;
 
-    if (!activeNoteIdRef.current) {
-      // New note: only create once there is real body content.
-      if (liveText.trim() === "") return;
-      const acquired = await acquirePageLock();
-      if (!acquired) {
-        scheduleAutosave();
-        return;
-      }
-      setSaveState({ status: "saving", at: null });
-      try {
-        const list = pagesRef.current;
-        const idx = pageIndexRef.current;
-        const joined = joinPages(list.length > 0 ? list : [{ content: "" }], list.length > 0 ? idx : 0, liveHtml);
-        const createdNote = await createNote(
-          title.trim() || null,
-          joined,
-          partitionId || null
-        );
-        const createdPages = [];
-        const source = list.length > 0 ? list : [{ content: "" }];
-        for (let i = 0; i < source.length; i++) {
-          const html = i === idx ? liveHtml : source[i].content || "";
-          createdPages.push(await createPage(createdNote.id, html, i + 1));
-        }
-        pagesRef.current = createdPages;
-        setPages(createdPages);
-        setSavedNoteId(createdNote.id);
-        activeNoteIdRef.current = createdNote.id;
-        try {
-          await onCreated?.(createdNote);
-        } catch (err) {
-          console.error("Failed to register created note:", err);
-        }
-        if (dirtyGenRef.current === gen) {
-          dirtyRef.current = false;
-          setEditorDirty(false);
-          setCleanTitle(title);
-          setCleanPartitionId(partitionId);
-        }
-        setSaveState({ status: "saved", at: Date.now() });
-      } catch (err) {
-        console.error("Autosave failed:", err);
-        setSaveState({ status: "error", at: Date.now() });
-        scheduleAutosaveRetry();
-      } finally {
-        releasePageLock();
-      }
-      return;
-    }
+    const liveList = getLivePages();
+    const hasAnyContent =
+      liveList.some((p) => (p.content || "").trim() !== "") ||
+      title.trim() !== "";
+    if (!activeNoteIdRef.current && !hasAnyContent) return;
 
     const acquired = await acquirePageLock();
     if (!acquired) {
       scheduleAutosave();
       return;
     }
+
     setSaveState({ status: "saving", at: null });
+    const gen = dirtyGenRef.current;
     try {
-      const working = await persistAllPages(liveHtml);
-      const joined = working.map((p) => p.content || "").join("");
-      await onUpdateNote?.(
-        activeNoteIdRef.current,
-        title.trim() || null,
-        joined,
-        partitionId || null,
-        { silent: true }
-      );
+      await persistAllPages();
       if (dirtyGenRef.current === gen) {
         dirtyRef.current = false;
         setEditorDirty(false);
@@ -312,12 +299,21 @@ export default function NoteWriter({
         if (data.length === 0) {
           const created = await createPage(noteId, initialContent || "", 1);
           if (cancelled) return;
-          setPages([created]);
-          setPageContent(initialContent || "");
+          const initialList = [created];
+          pagesRef.current = initialList;
+          setPages(initialList);
         } else {
-          setPages(data);
-          setPageContent(data[0].content || "");
+          const sorted = [...data].sort(
+            (a, b) => (Number(a.page_number) || 0) - (Number(b.page_number) || 0)
+          );
+          const normalized = sorted.map((p, idx) => ({
+            ...p,
+            page_number: idx + 1,
+          }));
+          pagesRef.current = normalized;
+          setPages(normalized);
         }
+        setIndex(0);
       } catch (err) {
         console.error("Failed to load pages:", err);
       } finally {
@@ -325,7 +321,9 @@ export default function NoteWriter({
       }
     }
     loadPages();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId, isEditing]);
 
@@ -359,40 +357,6 @@ export default function NoteWriter({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
-  // Write the live editor HTML into the current page slot.
-  // Persists through the API for real pages; local-only pages update state.
-  // Assumes the page lock is held. Returns the up-to-date page list.
-  async function flushLiveContent() {
-    const liveHtml = editorRef.current?.getHTML();
-    if (liveHtml === undefined) return pagesRef.current;
-    const list = pagesRef.current;
-    const idx = pageIndexRef.current;
-    const currentPage = list[idx];
-    if (!currentPage) return list;
-    if (liveHtml === currentPage.content) return list;
-    let next;
-    // NOTE: activeNoteId is read from a ref so this stays correct even when
-    // called from a stale callback (e.g. navigation after autosave creates
-    // the note). Writing state without persisting would lose data on refresh.
-    if (isPersistedPage(currentPage) && activeNoteIdRef.current) {
-      try {
-        const updated = await updatePage(currentPage.id, liveHtml);
-        next = list.map((p) => (p.id === currentPage.id ? updated : p));
-      } catch (err) {
-        console.error("Failed to save page:", err);
-        return list;
-      }
-    } else {
-      const snapshot = liveHtml;
-      next = list.map((p, i) =>
-        i === idx ? { ...p, content: snapshot } : p
-      );
-    }
-    pagesRef.current = next;
-    setPages(next);
-    return next;
-  }
-
   function setIndex(i) {
     pageIndexRef.current = i;
     setCurrentPageIndex(i);
@@ -405,34 +369,16 @@ export default function NoteWriter({
     const acquired = await acquirePageLock();
     if (!acquired) return;
     setPageBusy(true);
-    const editor = editorRef.current;
     try {
-      if (editor) {
-        try {
-          editor.setEditable(false);
-        } catch {
-          // ignore
-        }
-      }
-      const fresh = await flushLiveContent();
+      const fresh = getLivePages();
       const target = fresh[index];
       if (!target) return;
       setIndex(index);
-      setPageContent(target.content || "");
-      if (activeNoteIdRef.current) setEditorDirty(false);
       setCursorRequest(null);
     } finally {
-      if (editor) {
-        try {
-          editor.setEditable(true);
-        } catch {
-          // ignore
-        }
-      }
       setPageBusy(false);
       releasePageLock();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Add a new page at the end
@@ -440,206 +386,130 @@ export default function NoteWriter({
     const acquired = await acquirePageLock();
     if (!acquired) return;
     setPageBusy(true);
-    const editor = editorRef.current;
     try {
-      if (editor) {
-        try {
-          editor.setEditable(false);
-        } catch {
-          // ignore
-        }
-      }
-      const fresh = await flushLiveContent();
+      const currentList = getLivePages();
+      const nextNum = nextPageNumber(currentList);
+      let newPage;
       if (activeNoteIdRef.current) {
-        const newPage = await createPage(activeNoteIdRef.current, "", nextPageNumber(fresh));
-        const next = [...fresh, newPage];
-        pagesRef.current = next;
-        setPages(next);
-        setIndex(next.length - 1);
-        setPageContent("");
-        setEditorDirty(false);
-        setCursorRequest(null);
-        if (editorRef.current) {
-          editorRef.current.commands.setContent("", { emitUpdate: false });
-          editorRef.current.commands.focus();
+        try {
+          newPage = await createPage(activeNoteIdRef.current, "", nextNum);
+        } catch (err) {
+          console.warn("Falling back to local page creation:", err);
+          newPage = makeLocalPage("", nextNum);
         }
       } else {
-        const local = makeLocalPage("", nextPageNumber(fresh));
-        const next = [...fresh, local];
-        pagesRef.current = next;
-        setPages(next);
-        setIndex(next.length - 1);
-        setPageContent("");
-        setCursorRequest(null);
-        if (editorRef.current) {
-          editorRef.current.commands.setContent("", { emitUpdate: false });
-          editorRef.current.commands.focus();
-        }
+        newPage = makeLocalPage("", nextNum);
       }
+
+      const nextPages = [...currentList, newPage];
+      pagesRef.current = nextPages;
+      setPages(nextPages);
+      const targetIndex = nextPages.length - 1;
+      setIndex(targetIndex);
+      setCursorRequest(null);
       markDirty();
     } catch (err) {
       console.error("Failed to create page:", err);
     } finally {
-      if (editor) {
-        try {
-          editor.setEditable(true);
-        } catch {
-          // ignore
-        }
-      }
       setPageBusy(false);
       releasePageLock();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeNoteId]);
+  }, [markDirty]);
 
   // Handle automatic pagination when content overflows.
   // The overflowing tail is pushed forward into the NEXT page (created when
   // missing), so reading order is preserved on every page, not just the last.
-  const handleOverflow = useCallback(async ({ moveHtml, keepHtml, cursorInMoved, cursorOffset }) => {
-    const acquired = await acquirePageLock();
-    if (!acquired) return;
-    setPageBusy(true);
-    const editor = editorRef.current;
-    try {
-      if (editor) {
-        try {
-          editor.setEditable(false);
-        } catch {
-          // ignore
-        }
-      }
-      const list = pagesRef.current;
-      const idx = pageIndexRef.current;
-      const currentPage = list[idx];
-      if (!currentPage) {
-        if (activeNoteIdRef.current) {
-          try {
-            const created = await createPage(activeNoteIdRef.current, keepHtml, nextPageNumber(list));
-            const next = [...list, created];
-            pagesRef.current = next;
-            setPages(next);
-          } catch (err) {
-            console.error("Failed to recover missing page:", err);
-          }
-        }
-        return;
-      }
+  const handleOverflow = useCallback(
+    async ({ moveHtml, keepHtml, cursorInMoved, cursorOffset }) => {
+      const acquired = await acquirePageLock();
+      if (!acquired) return;
+      setPageBusy(true);
+      try {
+        const list = pagesRef.current;
+        const idx = pageIndexRef.current;
+        const currentPage = list[idx];
+        if (!currentPage) return;
 
-      let working = list;
-      if (isPersistedPage(currentPage) && activeNoteIdRef.current) {
-        const updated = await updatePage(currentPage.id, keepHtml);
-        working = working.map((p) => (p.id === currentPage.id ? updated : p));
-      } else {
-        working = working.map((p, i) =>
-          i === idx ? { ...p, content: keepHtml } : p
-        );
-      }
+        const working = [...list];
+        working[idx] = { ...currentPage, content: keepHtml };
 
-      const nextIdx = idx + 1;
-      let combined;
-      if (nextIdx < working.length) {
-        const target = working[nextIdx];
-        combined = `${moveHtml}${target.content || ""}`;
-        if (isPersistedPage(target) && activeNoteIdRef.current) {
-          const saved = await updatePage(target.id, combined);
-          working = working.map((p) => (p.id === target.id ? saved : p));
+        const nextIdx = idx + 1;
+        let combined;
+        if (nextIdx < working.length) {
+          const target = working[nextIdx];
+          combined = `${moveHtml}${target.content || ""}`;
+          working[nextIdx] = { ...target, content: combined };
         } else {
-          working = working.map((p, i) =>
-            i === nextIdx ? { ...p, content: combined } : p
-          );
+          combined = moveHtml;
+          const newPage = makeLocalPage(combined, nextPageNumber(working));
+          working.push(newPage);
         }
-      } else if (activeNoteIdRef.current) {
-        combined = moveHtml;
-        const created = await createPage(activeNoteIdRef.current, combined, nextPageNumber(working));
-        working = [...working, created];
-      } else {
-        combined = moveHtml;
-        const local = makeLocalPage(combined, nextPageNumber(working));
-        working = [...working, local];
-      }
 
-      pagesRef.current = working;
-      setPages(working);
-      if (activeNoteIdRef.current) setEditorDirty(false);
+        pagesRef.current = working;
+        setPages(working);
 
-      if (cursorInMoved) {
-        setIndex(nextIdx);
-        setPageContent(combined);
-        requestCursor(cursorOffset);
-      } else {
-        setPageContent(keepHtml);
-        requestCursor(cursorOffset);
-      }
-      markDirty();
-    } catch (err) {
-      console.error("Failed to auto-paginate:", err);
-    } finally {
-      if (editor) {
-        try {
-          editor.setEditable(true);
-        } catch {
-          // ignore
+        if (cursorInMoved) {
+          setIndex(nextIdx);
+          requestCursor(cursorOffset);
+        } else {
+          requestCursor(cursorOffset);
         }
+        markDirty();
+      } catch (err) {
+        console.error("Failed to auto-paginate:", err);
+      } finally {
+        setPageBusy(false);
+        releasePageLock();
       }
-      setPageBusy(false);
-      releasePageLock();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeNoteId]);
+    },
+    [markDirty]
+  );
 
   async function handleSave() {
-    const editorContent = editorRef.current?.getHTML() || "";
-    const plainText = editorRef.current?.getText() || "";
-    if ((plainText.trim() === "" && title.trim() === "") || saving) return;
+    if (saving) return;
+    const liveList = getLivePages();
+    const hasAnyContent =
+      liveList.some((p) => (p.content || "").trim() !== "") ||
+      title.trim() !== "";
+    if (!hasAnyContent) return;
+
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
+
     setSaving(true);
+    const acquired = await acquirePageLock();
+    if (!acquired) {
+      setSaving(false);
+      return;
+    }
+
     try {
-      if (activeNoteId && pages.length > 0) {
-        // Save current page first (through the page lock so an
-        // in-flight overflow distribution cannot interleave).
-        const acquired = await acquirePageLock();
-        if (acquired) {
-          try {
-            await flushLiveContent();
-          } finally {
-            releasePageLock();
-          }
-        }
-        // Persist the whole note body so previews/search cover every page.
-        const list = pagesRef.current;
-        const idx = pageIndexRef.current;
-        const joined = joinPages(list, idx, editorRef.current?.getHTML() || "");
-        if (isEditing) {
-          await onSave(title.trim() || null, joined, partitionId || null);
-        } else {
-          await onUpdateNote?.(
-            activeNoteId,
-            title.trim() || null,
-            joined,
-            partitionId || null,
-            { silent: false }
-          );
-          onClose();
-        }
-      } else {
-        // New note: join every local page (live editor HTML in the current
-        // slot) so no content is lost. On reopen the page system distributes
-        // it across real pages automatically.
-        const joined =
-          pages.length > 0
-            ? pages
-                .map((p, i) => (i === currentPageIndex ? editorContent : p.content || ""))
-                .join("")
-            : editorContent;
+      const { noteId: savedId, joined } = await persistAllPages();
+      dirtyRef.current = false;
+      setEditorDirty(false);
+      setCleanTitle(title);
+      setCleanPartitionId(partitionId);
+      setSaveState({ status: "saved", at: Date.now() });
+
+      if (isEditing) {
         await onSave(title.trim() || null, joined, partitionId || null);
+      } else {
+        await onUpdateNote?.(
+          savedId,
+          title.trim() || null,
+          joined,
+          partitionId || null,
+          { silent: false }
+        );
+        onClose();
       }
     } catch (err) {
       console.error("Failed to save note:", err);
+      setSaveState({ status: "error", at: Date.now() });
     } finally {
+      releasePageLock();
       setSaving(false);
     }
   }
@@ -651,11 +521,26 @@ export default function NoteWriter({
     }
   }
 
-  function handleContentChange(newContent) {
-    setPageContent(newContent);
-    setEditorDirty(true);
-    markDirty();
-  }
+  const handleContentChange = useCallback(
+    (newContent) => {
+      const idx = pageIndexRef.current;
+      if (pagesRef.current[idx]) {
+        pagesRef.current[idx] = {
+          ...pagesRef.current[idx],
+          content: newContent,
+        };
+      }
+      setPages((prev) => {
+        if (!prev[idx] || prev[idx].content === newContent) return prev;
+        const next = [...prev];
+        next[idx] = { ...next[idx], content: newContent };
+        return next;
+      });
+      setEditorDirty(true);
+      markDirty();
+    },
+    [markDirty]
+  );
 
   function handleTitleChange(value) {
     setTitle(value);
@@ -818,7 +703,8 @@ export default function NoteWriter({
             {/* Content editor */}
             {pagesLoaded && (
               <RichTextEditor
-                content={pageContent}
+                key={pages[currentPageIndex]?.id || currentPageIndex}
+                content={pages[currentPageIndex]?.content || ""}
                 onChange={handleContentChange}
                 editorRef={editorRef}
                 onOverflow={handleOverflow}
@@ -889,14 +775,14 @@ export default function NoteWriter({
         </div>
 
         {/* Sticky notes - mobile/tablet bottom panel, persisted notes only */}
-        {activeNoteId && (isEditing || savedNoteId) && pages.length > 0 && (
+        {activeNoteId && isPersistedPage(pages[currentPageIndex]) && (
           <div className="h-40 flex-shrink-0 border-t border-gray-100 sm:h-52 lg:hidden dark:border-gray-700">
             <StickyNotes key={pages[currentPageIndex]?.id} pageId={pages[currentPageIndex]?.id} />
           </div>
         )}
 
         {/* Sticky notes - desktop side panel, persisted notes only */}
-        {activeNoteId && (isEditing || savedNoteId) && pages.length > 0 && (
+        {activeNoteId && isPersistedPage(pages[currentPageIndex]) && (
           <div className="hidden w-72 flex-shrink-0 border-l border-gray-100 dark:border-gray-700 lg:flex lg:flex-col">
             <StickyNotes key={pages[currentPageIndex]?.id} pageId={pages[currentPageIndex]?.id} />
           </div>

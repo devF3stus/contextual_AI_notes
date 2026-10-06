@@ -116,6 +116,7 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
             : Math.max(0, selFrom);
 
           isSplittingRef.current = true;
+          editorInstance.commands.setContent(split.keepHtml, false);
           Promise.resolve()
             .then(() =>
               overflow({
@@ -130,9 +131,6 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
             })
             .finally(() => {
               isSplittingRef.current = false;
-              if (!editorInstanceRef.current?.isDestroyed) {
-                scheduleRef.current?.();
-              }
             });
         }
       });
@@ -181,22 +179,26 @@ export default function RichTextEditor({ content, onChange, editorRef, onOverflo
     if (!editor) return;
     const next = content || "";
     if (next !== editor.getHTML()) {
-      editor.commands.setContent(next, { emitUpdate: false });
+      editor.commands.setContent(next, false);
       scheduleOverflowCheck();
-      if (cursorRequest && cursorRequest.id !== appliedCursorIdRef.current) {
-        appliedCursorIdRef.current = cursorRequest.id;
-        try {
-          const maxPos = editor.state.doc.content.size;
-          editor.commands.setTextSelection(
-            Math.max(0, Math.min(cursorRequest.pos || 0, maxPos))
-          );
-        } catch {
-          // ignore out-of-range cursor requests
-        }
-        editor.commands.focus();
-      }
     }
-  }, [content, editor, cursorRequest, scheduleOverflowCheck]);
+  }, [content, editor, scheduleOverflowCheck]);
+
+  useEffect(() => {
+    if (!editor || !cursorRequest) return;
+    if (cursorRequest.id !== appliedCursorIdRef.current) {
+      appliedCursorIdRef.current = cursorRequest.id;
+      try {
+        const maxPos = editor.state.doc.content.size;
+        editor.commands.setTextSelection(
+          Math.max(0, Math.min(cursorRequest.pos || 0, maxPos))
+        );
+      } catch {
+        // ignore out-of-range cursor requests
+      }
+      editor.commands.focus();
+    }
+  }, [cursorRequest, editor]);
 
   useEffect(() => {
     return () => {

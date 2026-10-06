@@ -99,11 +99,13 @@ export async function fetchPage(pageId) {
   return response.json();
 }
 
-export async function updatePage(pageId, content) {
+export async function updatePage(pageId, content, pageNumber) {
+  const body = { content };
+  if (pageNumber !== undefined) body.page_number = pageNumber;
   const response = await fetch(`${API_BASE}/pages/${pageId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error("Failed to update page");
   return response.json();

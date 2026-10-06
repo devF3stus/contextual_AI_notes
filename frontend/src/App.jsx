@@ -73,7 +73,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [activePartition]);
 
-  async function reloadNotes() {
+  const reloadNotes = useCallback(async () => {
     try {
       const partitionId =
         activePartition && activePartition !== "all"
@@ -84,16 +84,16 @@ export default function App() {
     } catch (err) {
       console.error("Failed to load notes:", err);
     }
-  }
+  }, [activePartition]);
 
-  async function reloadPartitions() {
+  const reloadPartitions = useCallback(async () => {
     try {
       const data = await fetchPartitions();
       setPartitions(data);
     } catch (err) {
       console.error("Failed to load partitions:", err);
     }
-  }
+  }, []);
 
   // ─── Notes CRUD ─────────────────────────────────────────────
 
@@ -105,7 +105,7 @@ export default function App() {
       showToast("Note created successfully", "success");
       reloadPartitions();
     },
-    []
+    [reloadPartitions]
   );
 
   const handleUpdateFromWriter = useCallback(
@@ -145,7 +145,7 @@ export default function App() {
       return [note, ...prev];
     });
     reloadPartitions();
-  }, []);
+  }, [reloadPartitions]);
 
   const handleDeleteNote = useCallback(async (id) => {
     try {
@@ -157,7 +157,7 @@ export default function App() {
       console.error("Failed to delete note:", err);
       showToast("Failed to delete note", "error");
     }
-  }, []);
+  }, [reloadPartitions]);
 
   // ─── Partitions CRUD ────────────────────────────────────────
 
@@ -173,7 +173,7 @@ export default function App() {
       setPartitionModal(null);
       reloadPartitions();
     },
-    []
+    [reloadPartitions]
   );
 
   const handleDeletePartition = useCallback(
@@ -198,7 +198,7 @@ export default function App() {
         showToast("Failed to delete partition", "error");
       }
     },
-    [activePartition]
+    [activePartition, reloadNotes, reloadPartitions]
   );
 
   // ─── Derived state ──────────────────────────────────────────
