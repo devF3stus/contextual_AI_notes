@@ -2,6 +2,7 @@ const connectDB = require("./db");
 connectDB();
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const Note = require("./models/Note");
 const Partition = require("./models/Partition");
 const Page = require("./models/Page");
@@ -12,6 +13,69 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "Festudev";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "11974";
+const JWT_SECRET = process.env.JWT_SECRET || "contextual_ai_notes_jwt_secret_festudev_2026";
+
+// Auth middleware for protecting routes
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Access denied. No authentication token provided." });
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired session token. Please log in again." });
+  }
+}
+
+// ─── PUBLIC ENDPOINTS ──────────────────────────────────────────
+
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Login endpoint
+app.post("/api/auth/login", (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
+    }
+
+    if (username.trim() === ADMIN_USERNAME && String(password).trim() === ADMIN_PASSWORD) {
+      const token = jwt.sign(
+        { username: ADMIN_USERNAME },
+        JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+      return res.json({
+        success: true,
+        token,
+        user: { username: ADMIN_USERNAME }
+      });
+    }
+
+    return res.status(401).json({ error: "Invalid username or password" });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Failed to process login" });
+  }
+});
+
+// Verify token endpoint
+app.get("/api/auth/verify", requireAuth, (req, res) => {
+  res.json({ valid: true, user: req.user });
+});
+
+// Protect all remaining /api routes
+app.use("/api", requireAuth);
 
 // ─── PARTITIONS ────────────────────────────────────────────────
 
