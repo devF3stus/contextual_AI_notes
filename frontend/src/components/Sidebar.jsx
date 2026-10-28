@@ -10,6 +10,7 @@ export default function Sidebar({
   onRenamePartition,
   onDeletePartition,
   onOpenSettings,
+  onLogout,
 }) {
   const { theme, toggleTheme } = useTheme();
 
@@ -180,6 +181,17 @@ export default function Sidebar({
               </svg>
               Theme Settings
             </button>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            )}
             <p className="px-2 pt-2 text-xs text-gray-400 dark:text-gray-500">
               Contextual AI Notes v1.0
             </p>

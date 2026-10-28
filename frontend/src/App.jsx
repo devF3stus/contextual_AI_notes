@@ -8,6 +8,7 @@ import PartitionModal from "./components/PartitionModal";
 import ThemeSettings from "./components/ThemeSettings";
 import BackgroundSettings from "./components/BackgroundSettings";
 import Toast from "./components/Toast";
+import Login from "./components/Login";
 import { useTheme } from "./context/ThemeContext";
 import {
   fetchNotes,
@@ -18,10 +19,13 @@ import {
   createPartition,
   updatePartition,
   deletePartition,
+  getStoredToken,
+  removeStoredToken,
 } from "./services/api";
 
 export default function App() {
   const { backgroundImage } = useTheme();
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!getStoredToken());
   const [notes, setNotes] = useState([]);
   const [partitions, setPartitions] = useState([]);
   const [activePartition, setActivePartition] = useState(null);
@@ -40,7 +44,29 @@ export default function App() {
     setToast({ message, type });
   }
 
+  // Listen for 401 unauthorized events to force sign-out
   useEffect(() => {
+    function handleUnauthorized() {
+      removeStoredToken();
+      setIsAuthenticated(false);
+      showToast("Session expired. Please log in again.", "error");
+    }
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+    return () => {
+      window.removeEventListener("auth:unauthorized", handleUnauthorized);
+    };
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    removeStoredToken();
+    setIsAuthenticated(false);
+    setWritingNote(null);
+    setEditingNote(null);
+    showToast("Signed out successfully", "success");
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
     let cancelled = false;
     async function load() {
       try {
@@ -71,7 +97,7 @@ export default function App() {
     }
     load();
     return () => { cancelled = true; };
-  }, [activePartition]);
+  }, [activePartition, isAuthenticated]);
 
   const reloadNotes = useCallback(async () => {
     try {
@@ -262,6 +288,23 @@ export default function App() {
     ? activePartitionName
     : "Welcome back";
 
+  // ─── Authentication gate ────────────────────────────────────
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Login onLoginSuccess={() => setIsAuthenticated(true)} />
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+      </>
+    );
+  }
+
   // ─── Writing mode (full screen) ────────────────────────────
 
   if (writingNote) {
@@ -335,6 +378,7 @@ export default function App() {
         }
         onDeletePartition={handleDeletePartition}
         onOpenSettings={() => setThemeSettingsOpen(true)}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1 overflow-y-auto">
